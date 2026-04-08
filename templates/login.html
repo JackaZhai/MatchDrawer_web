@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 | SCIdrawer Web</title>
+    <link rel="icon" href="{{ url_for('static', filename='app-icon.png') }}" type="image/png">
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f3efe7;
+            --panel: rgba(255, 252, 247, 0.92);
+            --text: #1f1c18;
+            --muted: #6f665c;
+            --accent: #1c7c54;
+            --accent-hover: #14563b;
+            --border: rgba(31, 28, 24, 0.1);
+            --danger: #b42318;
+            --shadow: 0 24px 60px rgba(41, 35, 29, 0.14);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(28, 124, 84, 0.16), transparent 36%),
+                radial-gradient(circle at bottom right, rgba(201, 94, 31, 0.15), transparent 32%),
+                linear-gradient(135deg, #f7f3eb 0%, #efe7da 100%);
+            display: grid;
+            place-items: center;
+            padding: 24px;
+        }
+
+        .login-shell {
+            width: min(100%, 980px);
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+        }
+
+        .login-hero {
+            padding: 48px;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)),
+                linear-gradient(135deg, #1c7c54, #0f4f35);
+            color: #f7f8f4;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 32px;
+        }
+
+        .login-hero img {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.12);
+            padding: 10px;
+        }
+
+        .login-hero h1 {
+            margin: 0 0 12px;
+            font-size: clamp(2rem, 4vw, 3.25rem);
+            line-height: 1.05;
+        }
+
+        .login-hero p {
+            margin: 0;
+            max-width: 30rem;
+            color: rgba(247, 248, 244, 0.82);
+            line-height: 1.7;
+        }
+
+        .login-notes {
+            display: grid;
+            gap: 12px;
+            font-size: 0.95rem;
+        }
+
+        .login-note {
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .login-panel {
+            padding: 48px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-panel h2 {
+            margin: 0 0 8px;
+            font-size: 1.8rem;
+        }
+
+        .login-panel p {
+            margin: 0 0 28px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .login-form {
+            display: grid;
+            gap: 18px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+
+        .field label {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .field input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px 16px;
+            font: inherit;
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--text);
+        }
+
+        .field input:focus {
+            outline: 2px solid rgba(28, 124, 84, 0.18);
+            border-color: rgba(28, 124, 84, 0.5);
+        }
+
+        .error {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(180, 35, 24, 0.08);
+            color: var(--danger);
+            border: 1px solid rgba(180, 35, 24, 0.15);
+            font-size: 0.95rem;
+        }
+
+        .submit-btn {
+            border: 0;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font: inherit;
+            font-weight: 700;
+            color: #fff;
+            background: var(--accent);
+            cursor: pointer;
+            transition: background 0.18s ease, transform 0.18s ease;
+        }
+
+        .submit-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
+
+        .login-hint {
+            margin-top: 18px;
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.6;
+        }
+
+        .login-hint code {
+            background: rgba(31, 28, 24, 0.06);
+            border-radius: 8px;
+            padding: 2px 6px;
+        }
+
+        @media (max-width: 860px) {
+            .login-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .login-hero,
+            .login-panel {
+                padding: 32px 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-shell">
+        <section class="login-hero">
+            <div>
+                <img src="{{ url_for('static', filename='app-icon.png') }}" alt="SCIdrawer">
+                <h1>SCIdrawer Web</h1>
+                <p>把科研绘图工作台迁移到浏览器环境，保留原有生成、工作流与配置能力，后续新增功能都在这个仓库继续演进。</p>
+            </div>
+            <div class="login-notes">
+                <div class="login-note">支持图像生成、PaperBanana 工作流、Edit Banana 转 DrawIO。</div>
+                <div class="login-note">首次启动会自动创建默认账户，便于本地调试和功能迁移。</div>
+            </div>
+        </section>
+        <section class="login-panel">
+            <h2>登录</h2>
+            <p>先进入控制台，再逐步清理桌面端耦合并扩展为完整网页版本。</p>
+            <form class="login-form" method="post">
+                {% if error %}
+                <div class="error">{{ error }}</div>
+                {% endif %}
+                <div class="field">
+                    <label for="username">用户名</label>
+                    <input id="username" name="username" type="text" value="admin" autocomplete="username" required>
+                </div>
+                <div class="field">
+                    <label for="password">密码</label>
+                    <input id="password" name="password" type="password" value="banana123" autocomplete="current-password" required>
+                </div>
+                <button class="submit-btn" type="submit">进入工作台</button>
+            </form>
+            <div class="login-hint">
+                默认账号来自配置：<code>AUTH_USERNAME</code> / <code>AUTH_PASSWORD</code>。
+            </div>
+        </section>
+    </div>
+</body>
+</html>
