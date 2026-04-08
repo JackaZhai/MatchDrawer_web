@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -115,11 +114,10 @@ class UpdateService:
         if app_version:
             return app_version
 
-        package_json = Path(__file__).resolve().parents[2] / "electron" / "package.json"
-        if package_json.exists():
+        version_file = Path(__file__).resolve().parents[2] / "VERSION"
+        if version_file.exists():
             try:
-                data = json.loads(package_json.read_text(encoding="utf-8"))
-                version = self._clean_version(str(data.get("version") or ""))
+                version = self._clean_version(version_file.read_text(encoding="utf-8").strip())
                 if version:
                     return version
             except Exception:
