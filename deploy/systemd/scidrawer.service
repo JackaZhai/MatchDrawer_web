@@ -1,0 +1,17 @@
+[Unit]
+Description=SCIdrawer Web
+After=network.target
+
+[Service]
+Type=simple
+User=scidrawer
+Group=scidrawer
+WorkingDirectory=/opt/scidrawer/SCIdrawer_web
+EnvironmentFile=/opt/scidrawer/SCIdrawer_web/.env
+ExecStart=/opt/scidrawer/SCIdrawer_web/.venv/bin/gunicorn -c /opt/scidrawer/SCIdrawer_web/gunicorn.conf.py app:app
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -13,6 +13,7 @@ import asyncio
 import base64
 import json
 import os
+import shutil
 import sys
 import threading
 import uuid
@@ -246,6 +247,8 @@ class PaperBananaService:
         provider = self.api_key_service.normalize_provider(provider)
         text_provider = self.api_key_service.normalize_provider(text_provider or provider)
         image_provider = self.api_key_service.normalize_provider(image_provider or provider)
+        os.environ["MAIN_MODEL_NAME"] = text_model
+        os.environ["IMAGE_GEN_MODEL_NAME"] = image_model
 
         def _normalize_openai_base(p: str, base_url: str) -> str:
             b = (base_url or "").strip().rstrip("/")
@@ -282,12 +285,32 @@ class PaperBananaService:
             if not key:
                 raise ServiceError("Missing GOOGLE API key (provider=google)")
             os.environ["GOOGLE_API_KEY"] = key
+        else:
+            os.environ.pop("GOOGLE_API_KEY", None)
 
         if needs_anthropic:
             key = self.api_key_service.get_active_api_key_value(user_id, provider="anthropic")
             if not key:
                 raise ServiceError("Missing Anthropic API key (provider=anthropic)")
             os.environ["ANTHROPIC_API_KEY"] = key
+        else:
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+
+        openrouter_key = None
+        if text_provider == "openrouter":
+            openrouter_key = self.api_key_service.get_active_api_key_value(
+                user_id, provider="openrouter"
+            )
+        if image_provider == "openrouter" and not openrouter_key:
+            openrouter_key = self.api_key_service.get_active_api_key_value(
+                user_id, provider="openrouter"
+            )
+        if (text_provider == "openrouter" or image_provider == "openrouter") and not openrouter_key:
+            raise ServiceError("Missing OpenRouter API key (provider=openrouter)")
+        if openrouter_key:
+            os.environ["OPENROUTER_API_KEY"] = openrouter_key
+        else:
+            os.environ.pop("OPENROUTER_API_KEY", None)
 
         text_key = None
         text_base_url = ""
@@ -378,8 +401,11 @@ class PaperBananaService:
             raise ServiceError(f"PaperBanana not found at {self.root}")
 
         model_cfg = self.root / "configs" / "model_config.yaml"
-        if not model_cfg.exists():
-            raise ServiceError(f"Missing PaperBanana config: {model_cfg}")
+        model_template = self.root / "configs" / "model_config.template.yaml"
+        if not model_cfg.exists() and model_template.exists():
+            # Keep user-provided API keys authoritative: only create an empty working copy
+            # when no user config exists yet.
+            shutil.copyfile(model_template, model_cfg)
 
         self._write_status(
             PaperBananaJob(
@@ -423,6 +449,7 @@ class PaperBananaService:
         from utils.paperviz_processor import PaperVizProcessor
 
         from utils import config as pb_config
+        from utils.generation_utils import reinitialize_clients
 
         mode = (pipeline_mode or "full").strip().lower()
         requested_exp_mode = (exp_mode or "").strip()
@@ -484,22 +511,11 @@ class PaperBananaService:
             exp_mode=selected_exp_mode,
             retrieval_setting=selected_retrieval,
             max_critic_rounds=effective_max_critic_rounds,
-            model_name=text_model,
-            image_model_name=image_model,
+            main_model_name=text_model,
+            image_gen_model_name=image_model,
             work_dir=self.root,
         )
-
-        def _update_processing_stage(stage: str, stage_message: str, progress: int) -> None:
-            self._write_status(
-                PaperBananaJob(
-                    job_id=job_id,
-                    status="running",
-                    progress=max(45, min(84, int(progress))),
-                    stage=stage,
-                    stage_message=stage_message,
-                )
-            )
-            self._ensure_not_cancelled(job_id)
+        reinitialize_clients()
 
         processor = PaperVizProcessor(
             exp_config=exp_config,
@@ -510,7 +526,6 @@ class PaperBananaService:
             critic_agent=CriticAgent(exp_config=exp_config),
             retriever_agent=RetrieverAgent(exp_config=exp_config),
             polish_agent=PolishAgent(exp_config=exp_config),
-            progress_callback=_update_processing_stage,
         )
 
         data: Dict[str, Any] = {

@@ -111,11 +111,6 @@ const DOM = {
     timeoutSelect: document.getElementById('timeoutSelect'),
     retrySelect: document.getElementById('retrySelect'),
     uiLanguageSelect: document.getElementById('uiLanguageSelect'),
-    updateCheckBtn: document.getElementById('updateCheckBtn'),
-    updateAutoCheckToggle: document.getElementById('updateAutoCheckToggle'),
-    updateStatusText: document.getElementById('updateStatusText'),
-    updateCurrentVersionText: document.getElementById('updateCurrentVersionText'),
-    updateReleaseLink: document.getElementById('updateReleaseLink'),
 
 };
 
@@ -124,12 +119,10 @@ const I18N_STRINGS = {
         'nav.dashboard': '工作台',
         'nav.image_generation': '图像生成',
         'nav.api_keys': 'API 设置',
-        'nav.edit_banana': 'Edit Banana',
         'nav.settings': '设置',
         'page.dashboard': '工作台',
         'page.image_generation': '图像生成',
         'page.api_keys': 'API 设置',
-        'page.edit_banana': 'Edit Banana',
         'page.settings': '系统设置',
         'action.toggle_theme': '切换主题',
         'window.minimize': '最小化',
@@ -147,25 +140,6 @@ const I18N_STRINGS = {
         'settings.theme.light': '浅色',
         'settings.note': '说明',
         'settings.repo.name': 'GitHub 仓库',
-        'settings.update.title': '版本更新',
-        'settings.update.current': '当前版本',
-        'settings.update.auto.name': '自动检查更新',
-        'settings.update.auto.description': '启动后联网检查，并在有新版本时提醒',
-        'settings.update.auto.enabled': '已启用',
-        'settings.update.status.name': '更新状态',
-        'settings.update.status.idle': '尚未检查更新',
-        'settings.update.check_btn': '立即检查',
-        'settings.update.link': '查看新版本',
-        'update.status.checking': '正在联网检查更新...',
-        'update.status.not_configured': '未配置更新源（请设置 UPDATE_METADATA_URL 或 GITHUB_REPO）',
-        'update.status.up_to_date': '已是最新版本（v{current}）',
-        'update.status.new': '发现新版本 v{latest}（当前 v{current}）',
-        'update.status.error': '检查失败：{message}',
-        'update.notice.up_to_date': '当前已是最新版本 v{current}',
-        'update.notice.new': '发现新版本 v{latest}，当前 v{current}',
-        'update.notice.github_blocked': '查询更新失败，可能需要魔法的力量',
-        'update.notice.auto_on': '已开启自动检查更新',
-        'update.notice.auto_off': '已关闭自动检查更新',
         'paper.waiting': '等待开始',
         'paper.stage_prefix': '当前阶段：{stage}',
         'paper.processing_fallback': '处理中',
@@ -215,12 +189,10 @@ const I18N_STRINGS = {
         'nav.dashboard': 'Dashboard',
         'nav.image_generation': 'Image Generation',
         'nav.api_keys': 'API Settings',
-        'nav.edit_banana': 'Edit Banana',
         'nav.settings': 'Settings',
         'page.dashboard': 'Dashboard',
         'page.image_generation': 'Image Generation',
         'page.api_keys': 'API Settings',
-        'page.edit_banana': 'Edit Banana',
         'page.settings': 'System Settings',
         'action.toggle_theme': 'Toggle theme',
         'window.minimize': 'Minimize',
@@ -238,25 +210,6 @@ const I18N_STRINGS = {
         'settings.theme.light': 'Light',
         'settings.note': 'Notes',
         'settings.repo.name': 'GitHub Repository',
-        'settings.update.title': 'Updates',
-        'settings.update.current': 'Current Version',
-        'settings.update.auto.name': 'Auto Check Updates',
-        'settings.update.auto.description': 'Check online after startup and notify when a new version is available',
-        'settings.update.auto.enabled': 'Enabled',
-        'settings.update.status.name': 'Update Status',
-        'settings.update.status.idle': 'No update check yet',
-        'settings.update.check_btn': 'Check Now',
-        'settings.update.link': 'View Release',
-        'update.status.checking': 'Checking updates online...',
-        'update.status.not_configured': 'Update source is not configured (set UPDATE_METADATA_URL or GITHUB_REPO)',
-        'update.status.up_to_date': 'Up to date (v{current})',
-        'update.status.new': 'New version found: v{latest} (current v{current})',
-        'update.status.error': 'Check failed: {message}',
-        'update.notice.up_to_date': 'You are on the latest version v{current}',
-        'update.notice.new': 'New version v{latest} found, current v{current}',
-        'update.notice.github_blocked': 'Update check failed. You may need network bypass tools.',
-        'update.notice.auto_on': 'Auto update check enabled',
-        'update.notice.auto_off': 'Auto update check disabled',
         'paper.waiting': 'Waiting to start',
         'paper.stage_prefix': 'Current Stage: {stage}',
         'paper.processing_fallback': 'Processing',
@@ -375,9 +328,6 @@ const PageConfig = {
 
     'api-keys': {
         titleKey: 'page.api_keys'
-    },
-    'edit-banana': {
-        titleKey: 'page.edit_banana'
     },
     settings: {
         titleKey: 'page.settings'
@@ -1741,121 +1691,6 @@ function initWorkflowGraph() {
     queueWorkflowGraphRender();
 }
 
-function isAutoUpdateCheckEnabled() {
-    return localStorage.getItem('autoUpdateCheck') !== 'false';
-}
-
-function setUpdateStatusText(message) {
-    if (DOM.updateStatusText) {
-        DOM.updateStatusText.textContent = message;
-    }
-}
-
-function setUpdateReleaseLink(url) {
-    if (!DOM.updateReleaseLink) return;
-    const link = String(url || '').trim();
-    if (link) {
-        DOM.updateReleaseLink.href = link;
-        DOM.updateReleaseLink.style.display = '';
-    } else {
-        DOM.updateReleaseLink.href = '#';
-        DOM.updateReleaseLink.style.display = 'none';
-    }
-}
-
-function shouldShowGithubBypassNotice(message, payload = null) {
-    const text = String(message || '').toLowerCase();
-    const source = String((payload && payload.source) || '').toLowerCase();
-    const unreachable = payload && payload.reachable === false;
-    const isNotConfigured = text.includes('未配置更新源') || text.includes('not configured');
-    if (isNotConfigured) return false;
-    if (source === 'github' && unreachable) return true;
-
-    const hasGithubMarker = text.includes('github') || text.includes('api.github.com');
-    if (!hasGithubMarker) return false;
-
-    return [
-        '更新源访问失败',
-        'failed to fetch',
-        'networkerror',
-        'timeout',
-        'timed out',
-        'enotfound',
-        'econnreset',
-        'ssl',
-        'connection'
-    ].some((k) => text.includes(k));
-}
-
-async function checkForUpdates(options = {}) {
-    const { silent = false, showNoUpdateToast = true } = options;
-    const currentFallbackVersion = String((window.AppConfig && window.AppConfig.appVersion) || '0.1.0');
-
-    if (DOM.updateCheckBtn) {
-        DOM.updateCheckBtn.disabled = true;
-    }
-    setUpdateStatusText(t('update.status.checking'));
-
-    try {
-        const data = await window.APIService.checkAppUpdate();
-        const current = String(data.currentVersion || currentFallbackVersion);
-        const latest = String(data.latestVersion || current);
-        const hasUpdate = !!data.hasUpdate;
-        const configured = data.configured !== false;
-        const message = String(data.message || '').trim();
-
-        if (DOM.updateCurrentVersionText) {
-            DOM.updateCurrentVersionText.textContent = `v${current}`;
-        }
-
-        if (!configured) {
-            setUpdateStatusText(message || t('update.status.not_configured'));
-            setUpdateReleaseLink('');
-            return;
-        }
-
-        if (message) {
-            setUpdateStatusText(message);
-            setUpdateReleaseLink('');
-            if (!silent) {
-                const notifyMessage = shouldShowGithubBypassNotice(message, data)
-                    ? t('update.notice.github_blocked')
-                    : message;
-                showNotification(notifyMessage, 'warning');
-            }
-            return;
-        }
-
-        if (hasUpdate) {
-            setUpdateStatusText(t('update.status.new', { latest, current }));
-            setUpdateReleaseLink(data.releaseUrl || data.downloadUrl || '');
-            if (!silent) {
-                showNotification(t('update.notice.new', { latest, current }), 'warning');
-            }
-        } else {
-            setUpdateStatusText(t('update.status.up_to_date', { current }));
-            setUpdateReleaseLink('');
-            if (!silent && showNoUpdateToast) {
-                showNotification(t('update.notice.up_to_date', { current }), 'success');
-            }
-        }
-    } catch (error) {
-        const message = String((error && error.message) || 'unknown error');
-        setUpdateStatusText(t('update.status.error', { message }));
-        setUpdateReleaseLink('');
-        if (!silent) {
-            const notifyMessage = shouldShowGithubBypassNotice(message)
-                ? t('update.notice.github_blocked')
-                : t('update.status.error', { message });
-            showNotification(notifyMessage, 'error');
-        }
-    } finally {
-        if (DOM.updateCheckBtn) {
-            DOM.updateCheckBtn.disabled = false;
-        }
-    }
-}
-
 // 初始化应用
 function initApp() {
     console.log("初始化 SCIdrawer 应用...");
@@ -1877,16 +1712,6 @@ function initApp() {
     showPage(AppState.currentPage);
     updatePaperStage('queued', 'i18n:paper.message.idle_hint', 'idle');
     updatePaperTaskId('');
-    if (DOM.updateCurrentVersionText) {
-        const version = String((window.AppConfig && window.AppConfig.appVersion) || '0.1.0');
-        DOM.updateCurrentVersionText.textContent = `v${version}`;
-    }
-
-    if (isAutoUpdateCheckEnabled()) {
-        setTimeout(() => {
-            checkForUpdates({ silent: true, showNoUpdateToast: false });
-        }, 1500);
-    }
 
     console.log('应用初始化完成');
 }
@@ -2087,25 +1912,6 @@ function bindEvents() {
 
     if (DOM.retrySelect) {
         DOM.retrySelect.addEventListener('change', saveSettings);
-    }
-
-    if (DOM.updateCheckBtn) {
-        DOM.updateCheckBtn.addEventListener('click', () => {
-            checkForUpdates({ silent: false, showNoUpdateToast: true });
-        });
-    }
-    if (DOM.updateAutoCheckToggle) {
-        DOM.updateAutoCheckToggle.addEventListener('change', () => {
-            const enabled = !!DOM.updateAutoCheckToggle.checked;
-            localStorage.setItem('autoUpdateCheck', enabled ? 'true' : 'false');
-            showNotification(
-                enabled ? t('update.notice.auto_on') : t('update.notice.auto_off'),
-                'info'
-            );
-            if (enabled) {
-                checkForUpdates({ silent: true, showNoUpdateToast: false });
-            }
-        });
     }
 
     // 流式响应开关
@@ -3406,13 +3212,6 @@ function loadSettings() {
     if (DOM.uiLanguageSelect) {
         DOM.uiLanguageSelect.value = AppState.language;
     }
-    if (DOM.updateAutoCheckToggle) {
-        DOM.updateAutoCheckToggle.checked = isAutoUpdateCheckEnabled();
-    }
-    if (DOM.updateCurrentVersionText) {
-        const version = String((window.AppConfig && window.AppConfig.appVersion) || '0.1.0');
-        DOM.updateCurrentVersionText.textContent = `v${version}`;
-    }
 }
 
 // 保存设置
@@ -4084,8 +3883,6 @@ window.App = {
     addActivity,
     updateDashboardStats
 };
-
-
 
 
 

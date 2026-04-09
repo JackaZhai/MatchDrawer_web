@@ -8,6 +8,7 @@ import os
 import sys
 
 from flask import Flask
+from dotenv import load_dotenv
 
 from src.config import get_config
 from src.routes.api_routes import api_bp, main_bp
@@ -39,6 +40,7 @@ def _force_utf8_stdio() -> None:
 
 
 _force_utf8_stdio()
+load_dotenv()
 
 
 def create_app() -> Flask:

@@ -177,10 +177,6 @@ class APIService {
         return response.data || {};
     }
 
-    async checkAppUpdate() {
-        return await this.makeRequest('/api/update/check', 'GET');
-    }
-
     // 测试 API 密钥
     async testApiKey() {
         try {
@@ -575,7 +571,6 @@ const apiService = new APIService();
 // 导出到全局
 window.APIService = apiService;
 window.APIConfig = APIConfig;
-
 
 
 

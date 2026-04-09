@@ -14,7 +14,7 @@
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
+. .venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
@@ -32,8 +32,48 @@ Default login:
 
 Override with `AUTH_USERNAME` and `AUTH_PASSWORD` when needed.
 
-## Next Steps
+## Deploy On Linux
 
-- Remove remaining legacy compatibility traces
-- Add a clearer web deployment flow
-- Keep new feature work unified in this repository
+Recommended stack:
+
+- `gunicorn` for the Flask app
+- `systemd` for process management
+- `nginx` as reverse proxy
+
+Quick setup:
+
+```bash
+git clone <your-repo-url> /opt/scidrawer/SCIdrawer_web
+cd /opt/scidrawer/SCIdrawer_web
+/usr/bin/python3.14 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Then edit `.env`, especially:
+
+- `APP_SECRET_KEY`
+- `AUTH_USERNAME`
+- `AUTH_PASSWORD`
+- `NANO_BANANA_API_KEY`
+- `NANO_BANANA_HOST`
+
+Start with Gunicorn:
+
+```bash
+.venv/bin/gunicorn -c gunicorn.conf.py app:app
+```
+
+Deployment templates:
+
+- systemd: [deploy/systemd/scidrawer.service](/Users/jackzhai/Desktop/SCIdrawer_web/deploy/systemd/scidrawer.service)
+- nginx: [deploy/nginx/scidrawer.conf](/Users/jackzhai/Desktop/SCIdrawer_web/deploy/nginx/scidrawer.conf)
+- gunicorn config: [gunicorn.conf.py](/Users/jackzhai/Desktop/SCIdrawer_web/gunicorn.conf.py)
+- helper script: [scripts/deploy_linux.sh](/Users/jackzhai/Desktop/SCIdrawer_web/scripts/deploy_linux.sh)
+
+## Notes
+
+- Keep `integrations/PaperBanana` present on the server.
+- Reverse proxy `/static/` with nginx when possible.
+- For production, do not run `python app.py` directly.

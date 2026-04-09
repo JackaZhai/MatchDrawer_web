@@ -10,10 +10,8 @@ from ..models.usage_stats import UsageStats
 from ..services.ai_service import get_ai_service
 from ..services.api_key_service import get_api_key_service
 from ..services.auth import get_auth_service
-from ..services.edit_banana_service import get_edit_banana_service
 from ..services.paper_banana_service import get_paper_banana_service
 from ..services.provider_config_service import get_provider_config_service
-from ..services.update_service import get_update_service
 from .decorators import api_login_required, handle_api_errors, login_required
 
 # 创建API蓝图
@@ -144,15 +142,6 @@ def model_status() -> Any:
     return jsonify(result)
 
 
-@api_bp.get("/update/check")
-@api_login_required
-@handle_api_errors
-def check_update() -> Any:
-    """Check remote update information."""
-    update_service = get_update_service()
-    return jsonify(update_service.check_update())
-
-
 @api_bp.get("/provider-configs")
 @api_login_required
 @handle_api_errors
@@ -231,65 +220,6 @@ def cancel_result() -> Any:
     return jsonify(result)
 
 
-@api_bp.get("/edit-banana/status")
-@api_login_required
-@handle_api_errors
-def edit_banana_status() -> Any:
-    """Edit-Banana integration status."""
-    service = get_edit_banana_service()
-    return jsonify(service.get_status().to_dict())
-
-
-@api_bp.post("/edit-banana/convert")
-@api_login_required
-@handle_api_errors
-def edit_banana_convert() -> Any:
-    """Upload an image and return a DrawIO (.drawio) file."""
-    file = request.files.get("file")
-    if not file or not file.filename:
-        return jsonify({"error": "请上传图片文件(file)"}), 400
-
-    filename = file.filename
-    ext = (filename.rsplit(".", 1)[-1] if "." in filename else "").lower()
-    if ext not in {"png", "jpg", "jpeg", "bmp", "tiff", "webp"}:
-        return jsonify({"error": "仅支持图片格式: png/jpg/jpeg/bmp/tiff/webp"}), 400
-
-    with_text = request.form.get("withText", "true").lower() != "false"
-    with_refinement = request.form.get("withRefinement", "false").lower() == "true"
-
-    import uuid
-    from pathlib import Path
-
-    from ..config import get_config
-
-    cfg = get_config()
-    upload_dir = Path(cfg.data_dir) / "edit_banana" / "uploads"
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    upload_path = upload_dir / f"{uuid.uuid4().hex}.{ext}"
-    file.save(str(upload_path))
-
-    service = get_edit_banana_service()
-    status = service.get_status()
-    if with_text and not status.text_module_available:
-        with_text = False
-    output_path = service.convert_to_drawio(
-        upload_path,
-        with_text=with_text,
-        with_refinement=with_refinement,
-    )
-
-    download_name = f"{Path(filename).stem}.drawio"
-    return send_file(
-        str(output_path),
-        as_attachment=True,
-        download_name=download_name,
-        mimetype="application/xml",
-        conditional=True,
-        max_age=0,
-    )
-
-
 @api_bp.get("/paperbanana/file/<job_id>")
 @api_login_required
 @handle_api_errors
@@ -318,7 +248,6 @@ def index() -> Any:
     config = get_config()
     auth_service = get_auth_service()
     api_key_service = get_api_key_service()
-    update_service = get_update_service()
 
     user_id = auth_service.get_current_user_id()
     api_key_service.bootstrap_api_keys(user_id)
@@ -328,16 +257,10 @@ def index() -> Any:
     else:
         has_api_key = False
 
-    github_repo_url = ""
-    if config.github_repo:
-        github_repo_url = f"https://github.com/{config.github_repo}"
-
     return render_template(
         "index.html",
         api_host=config.api_host,
         has_api_key=has_api_key,
-        app_version=update_service.get_current_version(),
-        github_repo_url=github_repo_url,
     )
 
 

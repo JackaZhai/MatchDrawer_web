@@ -7,6 +7,7 @@ __pycache__/
 env/
 venv/
 .venv/
+.venv-py39-backup-*/
 ENV/
 env.bak/
 venv.bak/
@@ -75,3 +76,7 @@ electron/scidrawer-backend.spec
 # Build artifacts
 build/
 dist/
+
+# Vendored integrations
+integrations/PaperBanana/configs/model_config.yaml
+integrations/PaperBanana/results/
