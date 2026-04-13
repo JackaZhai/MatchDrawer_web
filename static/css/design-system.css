@@ -1,10 +1,10 @@
 /* ============================================
-   MatchDrawer - 现代设计系统
+   MatchDrawer - Modern Design System
    ============================================ */
 
-/* ===== 璁捐浠ょ墝 ===== */
+/* ===== Design Tokens ===== */
 :root {
-  /* 鑹插僵绯荤粺 - 娣辫壊涓婚 (鐜颁唬绠€绾︿腑寮? */
+  /* Color System - Dark Theme (Modern Minimalist) */
   --color-bg-primary: #1b120e;
   --color-bg-secondary: #241811;
   --color-bg-tertiary: #312117;
@@ -24,33 +24,34 @@
   --color-border-hover: rgba(226, 184, 149, 0.38);
   --color-border-focus: rgba(185, 113, 63, 0.45);
 
-  /* 鍝佺墝鑹?- 椹崱榫欒壊绯?*/
-  --color-primary: #b9713f; /* 椹崱榫欐祬钃濊壊 */
+  /* Brand Colors */
+  --color-primary: #b9713f; /* Warm brown */
+
   --color-primary-hover: #a56236;
   --color-primary-active: #8f522b;
   --color-primary-light: rgba(185, 113, 63, 0.16);
 
-  --color-secondary: #d49a69; /* 椹崱榫欐煍绮夎壊 */
+  --color-secondary: #d49a69; /* Soft peach */
   --color-secondary-hover: #bf8554;
   --color-secondary-active: #a76f40;
 
-  --color-accent: #8f6a4f; /* 椹崱榫欐贰缁胯壊 */
+  --color-accent: #8f6a4f; /* Muted earth */
   --color-accent-hover: #7b5a42;
   --color-accent-active: #694a35;
 
-  /* 鐘舵€佽壊 */
-  --color-success: #77DD77; /* 鏌斿拰缁胯壊 */
-  --color-warning: #FFB347; /* 鏌斿拰姗欒壊 */
-  --color-error: #FF7F7F; /* 鏌斿拰鐝婄憵鑹?*/
-  --color-info: #77B5FE; /* 鏌斿拰钃濊壊 */
+  /* Status Colors */
+  --color-success: #77DD77; /* Muted green */
+  --color-warning: #FFB347; /* Muted orange */
+  --color-error: #FF7F7F; /* Muted red */
+  --color-info: #77B5FE; /* Muted blue */
 
-  /* 娓愬彉 - 椹崱榫欒壊绯?*/
+  /* Gradients */
   --gradient-primary: linear-gradient(135deg, #d49a69 0%, #8f522b 100%);
   --gradient-secondary: linear-gradient(135deg, #e2b48e 0%, #b9713f 100%);
   --gradient-accent: linear-gradient(135deg, #b48e72 0%, #7b5a42 100%);
   --gradient-surface: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
 
-  /* 闃村奖 */
+  /* Shadows */
   --shadow-sm: none;
   --shadow-md: none;
   --shadow-lg: none;
@@ -59,7 +60,7 @@
   --shadow-elevated: none;
   --shadow-floating: none;
 
-  /* 鍦嗚 */
+  /* Border Radius */
   --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -67,7 +68,7 @@
   --radius-xl: 24px;
   --radius-full: 9999px;
 
-  /* 闂磋窛 */
+  /* Spacing */
   --space-1: 0.25rem;  /* 4px */
   --space-2: 0.5rem;   /* 8px */
   --space-3: 0.75rem;  /* 12px */
@@ -80,7 +81,7 @@
   --space-16: 4rem;    /* 64px */
   --space-20: 5rem;    /* 80px */
 
-  /* 瀛椾綋 */
+  /* Typography */
   --font-family: 'PingFang SC', 'Microsoft YaHei', 'Source Han Sans SC', 'HarmonyOS Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-family-mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Source Han Mono SC', 'Monaco', 'Consolas', monospace;
 
@@ -98,20 +99,20 @@
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  /* 鍔ㄧ敾 */
+  /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
   --transition-slow: 350ms ease;
   --transition-bounce: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  /* 鐜荤拑鎬佹晥鏋?*/
+  /* Glass Effects */
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-blur: blur(20px);
   --glass-shadow: none;
 }
 
-/* ===== 娴呰壊涓婚 ===== */
+/* ===== Light Theme ===== */
 [data-theme="light"] {
   --color-bg-primary: #fcf7f2;
   --color-bg-secondary: #f4e9df;
@@ -136,7 +137,7 @@
   --glass-border: rgba(255, 255, 255, 0.8);
 }
 
-/* ===== 鍩虹閲嶇疆 ===== */
+/* ===== Base Reset ===== */
 * {
   margin: 0;
   padding: 0;
@@ -168,7 +169,7 @@ body {
 }
 
 
-/* ===== 鎺掔増绯荤粺 ===== */
+/* ===== Typography System ===== */
 h1, h2, h3, h4, h5, h6 {
   font-weight: var(--font-weight-semibold);
   line-height: 1.2;
@@ -214,7 +215,7 @@ p {
 .leading-normal { line-height: 1.5; }
 .leading-relaxed { line-height: 1.75; }
 
-/* ===== 闂磋窛宸ュ叿 ===== */
+/* ===== Spacing Utilities ===== */
 .m-0 { margin: 0; }
 .m-1 { margin: var(--space-1); }
 .m-2 { margin: var(--space-2); }
@@ -263,7 +264,7 @@ p {
 .pb-5 { padding-bottom: var(--space-5); }
 .pb-6 { padding-bottom: var(--space-6); }
 
-/* ===== 甯冨眬宸ュ叿 ===== */
+/* ===== Layout Utilities ===== */
 .flex { display: flex; }
 .inline-flex { display: inline-flex; }
 .grid { display: grid; }
@@ -298,7 +299,7 @@ p {
 .h-full { height: 100%; }
 .min-h-screen { min-height: 100vh; }
 
-/* ===== 鑳屾櫙鍜岃竟妗?===== */
+/* ===== Backgrounds and Borders ===== */
 .bg-primary { background-color: var(--color-bg-primary); }
 .bg-secondary { background-color: var(--color-bg-secondary); }
 .bg-tertiary { background-color: var(--color-bg-tertiary); }
@@ -333,7 +334,7 @@ p {
 .rounded-xl { border-radius: var(--radius-xl); }
 .rounded-full { border-radius: var(--radius-full); }
 
-/* ===== 闃村奖 ===== */
+/* ===== Shadows ===== */
 .shadow-sm { box-shadow: var(--shadow-sm); }
 .shadow-md { box-shadow: var(--shadow-md); }
 .shadow-lg { box-shadow: var(--shadow-lg); }
@@ -342,7 +343,7 @@ p {
 .shadow-elevated { box-shadow: var(--shadow-elevated); }
 .shadow-floating { box-shadow: var(--shadow-floating); }
 
-/* ===== 鐜荤拑鎬佹晥鏋?===== */
+/* ===== Glass Effects ===== */
 .glass {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -356,7 +357,7 @@ p {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* ===== 鍔ㄧ敾绫?===== */
+/* ===== Animation Classes ===== */
 .transition-fast { transition: var(--transition-fast); }
 .transition-normal { transition: var(--transition-normal); }
 .transition-slow { transition: var(--transition-slow); }
@@ -375,7 +376,7 @@ p {
   transform: translateY(1px);
 }
 
-/* ===== 宸ュ叿绫?===== */
+/* ===== Utility Classes ===== */
 .pointer-events-none { pointer-events: none; }
 .pointer-events-auto { pointer-events: auto; }
 
@@ -404,7 +405,7 @@ p {
 .z-40 { z-index: 40; }
 .z-50 { z-index: 50; }
 
-/* ===== 婊氬姩鏉℃牱寮?===== */
+/* ===== Scrollbar Styles ===== */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -424,13 +425,13 @@ p {
   background: var(--color-border-hover);
 }
 
-/* ===== 鐒︾偣鏍峰紡 ===== */
+/* ===== Focus Styles ===== */
 :focus-visible {
   outline: 2px solid var(--color-border-focus);
   outline-offset: 2px;
 }
 
-/* ===== 鎵撳嵃鏍峰紡 ===== */
+/* ===== Print Styles ===== */
 @media print {
   .no-print {
     display: none !important;
