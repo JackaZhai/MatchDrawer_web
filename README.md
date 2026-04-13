@@ -1,6 +1,6 @@
-# SCIdrawer Web
+# MatchDrawer Web
 
-`SCIdrawer_web` is the web-first repository for SCIdrawer. It currently contains the migrated Flask web subset from the desktop project, and future browser-focused changes should land here.
+`MatchDrawer_web` is the web-first repository for MatchDrawer. It currently contains the migrated Flask web subset from the desktop project, and future browser-focused changes should land here.
 
 ## Current Scope
 
@@ -43,8 +43,8 @@ Recommended stack:
 Quick setup:
 
 ```bash
-git clone <your-repo-url> /opt/scidrawer/SCIdrawer_web
-cd /opt/scidrawer/SCIdrawer_web
+git clone <your-repo-url> /opt/matchdrawer/MatchDrawer_web
+cd /opt/matchdrawer/MatchDrawer_web
 /usr/bin/python3.14 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
@@ -67,10 +67,10 @@ Start with Gunicorn:
 
 Deployment templates:
 
-- systemd: [deploy/systemd/scidrawer.service](/Users/jackzhai/Desktop/SCIdrawer_web/deploy/systemd/scidrawer.service)
-- nginx: [deploy/nginx/scidrawer.conf](/Users/jackzhai/Desktop/SCIdrawer_web/deploy/nginx/scidrawer.conf)
-- gunicorn config: [gunicorn.conf.py](/Users/jackzhai/Desktop/SCIdrawer_web/gunicorn.conf.py)
-- helper script: [scripts/deploy_linux.sh](/Users/jackzhai/Desktop/SCIdrawer_web/scripts/deploy_linux.sh)
+- systemd: [deploy/systemd/matchdrawer.service](deploy/systemd/matchdrawer.service)
+- nginx: [deploy/nginx/matchdrawer.conf](deploy/nginx/matchdrawer.conf)
+- gunicorn config: [gunicorn.conf.py](gunicorn.conf.py)
+- helper script: [scripts/deploy_linux.sh](scripts/deploy_linux.sh)
 
 ## Notes
 

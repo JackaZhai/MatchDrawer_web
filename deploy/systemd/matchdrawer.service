@@ -1,0 +1,17 @@
+[Unit]
+Description=MatchDrawer Web
+After=network.target
+
+[Service]
+Type=simple
+User=matchdrawer
+Group=matchdrawer
+WorkingDirectory=/opt/matchdrawer/MatchDrawer_web
+EnvironmentFile=/opt/matchdrawer/MatchDrawer_web/.env
+ExecStart=/opt/matchdrawer/MatchDrawer_web/.venv/bin/gunicorn -c /opt/matchdrawer/MatchDrawer_web/gunicorn.conf.py app:app
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
