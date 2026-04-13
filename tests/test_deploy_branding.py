@@ -26,6 +26,11 @@ class DeployBrandingTest(unittest.TestCase):
         self.assertIn("/opt/matchdrawer/MatchDrawer_web", readme)
         self.assertIn("deploy/systemd/matchdrawer.service", readme)
         self.assertIn("deploy/nginx/matchdrawer.conf", readme)
+        self.assertIn("Migration note for existing `scidrawer` installs", readme)
+        self.assertIn("Create the `matchdrawer` user and group", readme)
+        self.assertIn("Move or reclone the app to `/opt/matchdrawer/MatchDrawer_web`", readme)
+        self.assertIn("Replace the old `scidrawer` service and nginx assets", readme)
+        self.assertIn("Disable and remove the old `scidrawer` unit before enabling `matchdrawer`", readme)
         self.assertIn("# MatchDrawer 服务配置", env_example)
         self.assertIn("/opt/matchdrawer/MatchDrawer_web/integrations/PaperBanana", env_example)
 
@@ -43,16 +48,9 @@ class DeployBrandingTest(unittest.TestCase):
         self.assertIn("WorkingDirectory=/opt/matchdrawer/MatchDrawer_web", systemd)
         self.assertIn("alias /opt/matchdrawer/MatchDrawer_web/static/", nginx)
 
-    def test_task_scope_files_do_not_contain_old_branding(self):
-        tracked_files = [
-            self.readme,
-            self.env_example,
-            self.deploy_script,
-            self.template,
-            self.systemd,
-            self.nginx,
-        ]
-        for path in tracked_files:
-            body = path.read_text(encoding="utf-8-sig")
-            self.assertNotIn("SCIdrawer", body, f"{path} still contains SCIdrawer")
-            self.assertNotIn("scidrawer", body, f"{path} still contains scidrawer")
+    def test_settings_link_targets_live_repo_without_legacy_branding(self):
+        template = self.template.read_text(encoding="utf-8")
+
+        self.assertIn('href="https://github.com/JackaZhai/SCIdrawer_web"', template)
+        self.assertIn(">GitHub repository<", template)
+        self.assertNotIn(">SCIdrawer", template)

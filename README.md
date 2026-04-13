@@ -72,6 +72,13 @@ Deployment templates:
 - gunicorn config: [gunicorn.conf.py](gunicorn.conf.py)
 - helper script: [scripts/deploy_linux.sh](scripts/deploy_linux.sh)
 
+Migration note for existing `scidrawer` installs:
+
+- Create the `matchdrawer` user and group if the host still uses the old `scidrawer` account names.
+- Move or reclone the app to `/opt/matchdrawer/MatchDrawer_web`.
+- Replace the old `scidrawer` service and nginx assets with `matchdrawer.service` and `matchdrawer.conf`.
+- Disable and remove the old `scidrawer` unit before enabling `matchdrawer`.
+
 ## Notes
 
 - Keep `integrations/PaperBanana` present on the server.
