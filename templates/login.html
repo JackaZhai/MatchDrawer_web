@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 | SCIdrawer Web</title>
+    <title>登录 | MatchDrawer</title>
     <link rel="icon" href="{{ url_for('static', filename='app-icon.png') }}" type="image/png">
     <style>
         :root {
@@ -198,18 +198,18 @@
     <div class="login-shell">
         <section class="login-hero">
             <div>
-                <img src="{{ url_for('static', filename='app-icon.png') }}" alt="SCIdrawer">
-                <h1>SCIdrawer Web</h1>
-                <p>把科研绘图工作台迁移到浏览器环境，保留原有生成、工作流与配置能力，后续新增功能都在这个仓库继续演进。</p>
+                <img src="{{ url_for('static', filename='app-icon.png') }}" alt="MatchDrawer">
+                <h1>MatchDrawer</h1>
+                <p>面向论文图、流程图、架构图、机制图与产品示意图的通用画图平台，保留完整的 PaperBanana 专业工作流。</p>
             </div>
             <div class="login-notes">
-                <div class="login-note">支持图像生成、PaperBanana 工作流。</div>
-                <div class="login-note">首次启动会自动创建默认账户，便于本地调试和功能迁移。</div>
+                <div class="login-note">支持通用图像生成与 PaperBanana 工作流。</div>
+                <div class="login-note">首次启动会自动创建默认账户，便于本地调试、部署迁移与工作流验证。</div>
             </div>
         </section>
         <section class="login-panel">
             <h2>登录</h2>
-            <p>先进入控制台，再逐步清理桌面端耦合并扩展为完整网页版本。</p>
+            <p>登录后进入 MatchDrawer 控制台，可直接开始通用画图，或切换到 PaperBanana 进行多阶段专业生成。</p>
             <form class="login-form" method="post">
                 {% if error %}
                 <div class="error">{{ error }}</div>
