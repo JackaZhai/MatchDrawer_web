@@ -1,6 +1,6 @@
-﻿"""
-SCIdrawer - AI Service Middleware
-面向对象重构版本
+"""
+MatchDrawer - AI Drawing Platform
+通用画图与专业工作流网页版本
 """
 
 import io

@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>控制台 | SCIdrawer</title>
+    <title>控制台 | MatchDrawer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -27,10 +27,10 @@
             <div class="sidebar-header">
                 <a href="#" class="sidebar-brand">
                     <div class="brand-logo">
-                        <img src="{{ url_for('static', filename='app-icon.png') }}" alt="SCIdrawer Logo" class="brand-logo-image">
+                        <img src="{{ url_for('static', filename='app-icon.png') }}" alt="MatchDrawer Logo" class="brand-logo-image">
                     </div>
                     <div class="brand-text">
-                        <div class="brand-title">SCIdrawer</div>
+                        <div class="brand-title">MatchDrawer</div>
         
                     </div>
                 </a>
@@ -92,34 +92,34 @@
                                         <div class="workflow-item">
                                             <div class="workflow-index">01</div>
                                             <div>
-                                                <div class="workflow-title">明确图类型</div>
-                                                <div class="workflow-desc">先定义机制图、流程图或对比图，减少提示词歧义。</div>
+                                                <div class="workflow-title">明确任务类型</div>
+                                                <div class="workflow-desc">先判断是通用插图、架构图、流程图还是机制图，再决定出图路径。</div>
                                             </div>
                                         </div>
                                         <div class="workflow-item">
                                             <div class="workflow-index">02</div>
                                             <div>
-                                                <div class="workflow-title">套用模板提示词</div>
-                                                <div class="workflow-desc">使用下方模板快速起稿，再按领域术语精修。</div>
+                                                <div class="workflow-title">直接生成或套用模板</div>
+                                                <div class="workflow-desc">简单任务可以直接生成，结构化任务先用模板快速起稿，再按领域术语精修。</div>
                                             </div>
                                         </div>
                                         <div class="workflow-item">
                                             <div class="workflow-index">03</div>
                                             <div>
-                                                <div class="workflow-title">多轮审图迭代</div>
-                                                <div class="workflow-desc">开启 critic + eval，追踪活动记录对比版本改进。</div>
+                                                <div class="workflow-title">复杂任务走专业工作流</div>
+                                                <div class="workflow-desc">需要审图、评估和版本追踪时，切换到 PaperBanana 专业工作流。</div>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="prompt-chips">
+                                        <button type="button" class="prompt-chip" data-fill-prompt="Create a permissions flowchart for a multi-role platform. Show administrator, editor, reviewer, and visitor access paths, with concise English labels, arrows, and a clean architecture-style layout.">
+                                            权限流程图模板
+                                        </button>
+                                        <button type="button" class="prompt-chip" data-fill-prompt="Create a system architecture diagram for a browser-based AI drawing platform. Show the UI layer, service layer, workflow engine, storage, and model integrations with clear module boundaries and English labels.">
+                                            架构图模板
+                                        </button>
                                         <button type="button" class="prompt-chip" data-fill-prompt="Create a mechanism diagram for oxidative stress in neuronal aging. Include mitochondria, ROS accumulation, DNA damage response, and downstream inflammation pathways. Use a clean white background, journal-ready style, English labels, and clear directional arrows.">
                                             机制图模板
-                                        </button>
-                                        <button type="button" class="prompt-chip" data-fill-prompt="Create a two-column comparison figure between CRISPR-Cas9 and base editing. Compare editing principle, off-target risk, delivery constraints, and suitable applications. Use concise English labels and balanced spacing.">
-                                            对比图模板
-                                        </button>
-                                        <button type="button" class="prompt-chip" data-fill-prompt="Design a workflow diagram for single-cell RNA-seq analysis from raw FASTQ to cell annotation and differential expression. Show each stage as a module with arrows and include key QC checkpoints.">
-                                            流程图模板
                                         </button>
                                     </div>
                                 </div>
@@ -170,9 +170,10 @@
                                         <span class="required">*</span>
                                     </div>
                                     <textarea id="promptInput" class="form-textarea prompt-editor"
-                                              placeholder="例如：设计一张流程图，展示用户登录后的权限分流逻辑，包含管理员、编辑者、访客三类角色，使用简洁现代风格"
+                                              placeholder="例如：设计一张架构图，展示用户登录后的权限分流、模块边界和数据流，使用简洁现代风格"
                                               rows="6"></textarea>
                                     <div class="parameter-hint">尽量包含主体、风格、细节和构图要求。</div>
+                                    <div class="parameter-hint">通用任务可直接生成，复杂结构任务建议使用 PaperBanana 专业工作流。</div>
                                 </div>
 
                                 <div class="parameter-section model-section" id="generationModelSection">
@@ -204,7 +205,7 @@
                                     </div>
                                     <div class="parameter-grid-2" style="margin-top: 0.75rem;">
                                         <div class="form-group">
-                                            <label class="form-label">PaperBanana 流程</label>
+                                            <label class="form-label">PaperBanana 专业工作流</label>
                                             <select id="generationExpModeSelect" class="form-select">
                                                 <option value="">自动（推荐：Full）</option>
                                                 <option value="dev_full">Full: 检索+规划+风格+生图+审图+评估</option>
@@ -252,7 +253,7 @@
                                         </div>
                                     </div>
                                     <div class="parameter-hint workflow-summary" id="generationWorkflowSummary">
-                                        当前流程预览：完整流程（含审图与评估）
+                                        当前流程预览：PaperBanana 完整流程（含审图与评估）
                                     </div>
                                     <div class="parameter-hint">模型列表按已激活密钥自动筛选。</div>
                                 </div>
@@ -301,7 +302,7 @@
                                             <span class="paper-status-title" id="paperStageTitle">等待开始</span>
                                             <span class="paper-status-chip" id="paperStageChip">未开始</span>
                                         </div>
-                                        <div class="paper-status-message" id="paperStageMessage">提交任务后会显示 PaperBanana 当前处理阶段。</div>
+                                        <div class="paper-status-message" id="paperStageMessage">提交任务后会显示 PaperBanana 专业工作流当前处理阶段。</div>
                                         <div class="paper-status-message" id="paperTaskIdText">任务ID：--</div>
                                         <div class="paper-workflow-graph" id="paperWorkflowGraph">
                                             <svg class="paper-workflow-arrows" id="paperWorkflowArrows" aria-hidden="true"></svg>

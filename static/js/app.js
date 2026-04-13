@@ -1,5 +1,5 @@
-﻿/* ============================================
-   SCIdrawer - 主应用脚本
+/* ============================================
+   MatchDrawer - 主应用脚本
    ============================================ */
 
 // 应用状态管理
@@ -148,8 +148,8 @@ const I18N_STRINGS = {
         'paper.chip.failed': '失败',
         'paper.chip.succeeded': '完成',
         'paper.message.processing': '处理中...',
-        'paper.message.idle_hint': '提交任务后会显示 PaperBanana 当前处理阶段。',
-        'paper.message.task_submitted_waiting': '任务已提交，等待 PaperBanana 启动...',
+        'paper.message.idle_hint': '提交任务后会显示 PaperBanana 专业工作流当前处理阶段。',
+        'paper.message.task_submitted_waiting': '任务已提交，等待 PaperBanana 专业工作流启动...',
         'paper.message.poll_timeout': '轮询超时，任务仍在后台执行，请稍后查询结果',
         'paper.message.task_canceled': '任务已取消',
         'paper.message.generation_done': '图像生成完成',
@@ -218,8 +218,8 @@ const I18N_STRINGS = {
         'paper.chip.failed': 'Failed',
         'paper.chip.succeeded': 'Done',
         'paper.message.processing': 'Processing...',
-        'paper.message.idle_hint': 'PaperBanana stages will appear after submitting a task.',
-        'paper.message.task_submitted_waiting': 'Task submitted. Waiting for PaperBanana to start...',
+        'paper.message.idle_hint': 'PaperBanana professional workflow stages will appear after submitting a task.',
+        'paper.message.task_submitted_waiting': 'Task submitted. Waiting for PaperBanana professional workflow to start...',
         'paper.message.poll_timeout': 'Polling timed out. The task is still running in the background.',
         'paper.message.task_canceled': 'Task canceled',
         'paper.message.generation_done': 'Image generation completed',
@@ -1693,7 +1693,7 @@ function initWorkflowGraph() {
 
 // 初始化应用
 function initApp() {
-    console.log("初始化 SCIdrawer 应用...");
+    console.log("初始化 MatchDrawer 应用...");
 
     // 设置主题
     setTheme(AppState.theme);
