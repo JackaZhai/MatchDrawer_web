@@ -29,6 +29,8 @@ class DeployBrandingTest(unittest.TestCase):
         self.assertIn("Migration note for existing `scidrawer` installs", readme)
         self.assertIn("Create the `matchdrawer` user and group", readme)
         self.assertIn("Move or reclone the app to `/opt/matchdrawer/MatchDrawer_web`", readme)
+        self.assertIn("Make `matchdrawer:matchdrawer` the owner of `/opt/matchdrawer/MatchDrawer_web`", readme)
+        self.assertIn("Run `sudo chown -R matchdrawer:matchdrawer /opt/matchdrawer/MatchDrawer_web`", readme)
         self.assertIn("Replace the old `scidrawer` service and nginx assets", readme)
         self.assertIn("Disable and remove the old `scidrawer` unit before enabling `matchdrawer`", readme)
         self.assertIn("# MatchDrawer 服务配置", env_example)
@@ -38,6 +40,8 @@ class DeployBrandingTest(unittest.TestCase):
         script = self.deploy_script.read_text(encoding="utf-8")
 
         self.assertIn('APP_DIR="${APP_DIR:-/opt/matchdrawer/MatchDrawer_web}"', script)
+        self.assertIn('if [ "$(id -u)" -eq 0 ] && id -u matchdrawer >/dev/null 2>&1; then', script)
+        self.assertIn('chown -R matchdrawer:matchdrawer "$APP_DIR"', script)
         self.assertIn("sudo systemctl enable --now matchdrawer", script)
 
     def test_service_and_nginx_configs_use_matchdrawer_paths(self):
@@ -45,6 +49,8 @@ class DeployBrandingTest(unittest.TestCase):
         nginx = self.nginx.read_text(encoding="utf-8")
 
         self.assertIn("Description=MatchDrawer Web", systemd)
+        self.assertIn("User=matchdrawer", systemd)
+        self.assertIn("Group=matchdrawer", systemd)
         self.assertIn("WorkingDirectory=/opt/matchdrawer/MatchDrawer_web", systemd)
         self.assertIn("alias /opt/matchdrawer/MatchDrawer_web/static/", nginx)
 

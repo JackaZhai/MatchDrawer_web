@@ -16,6 +16,10 @@ pip install -r requirements.txt
 
 mkdir -p data logs
 
+if [ "$(id -u)" -eq 0 ] && id -u matchdrawer >/dev/null 2>&1; then
+  chown -R matchdrawer:matchdrawer "$APP_DIR"
+fi
+
 echo "Deployment dependencies installed."
 echo "Next steps:"
 echo "1. Edit $APP_DIR/.env"

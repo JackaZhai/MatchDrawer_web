@@ -76,6 +76,8 @@ Migration note for existing `scidrawer` installs:
 
 - Create the `matchdrawer` user and group if the host still uses the old `scidrawer` account names.
 - Move or reclone the app to `/opt/matchdrawer/MatchDrawer_web`.
+- Make `matchdrawer:matchdrawer` the owner of `/opt/matchdrawer/MatchDrawer_web`, including `.env`, `data`, and `logs`, so the service can read config and write runtime files.
+- Run `sudo chown -R matchdrawer:matchdrawer /opt/matchdrawer/MatchDrawer_web` after the move or reclone.
 - Replace the old `scidrawer` service and nginx assets with `matchdrawer.service` and `matchdrawer.conf`.
 - Disable and remove the old `scidrawer` unit before enabling `matchdrawer`.
 
