@@ -1,28 +1,76 @@
+import importlib
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 
+APP_ENV_VARS = ("APP_SECRET_KEY", "AUTH_USERNAME", "AUTH_PASSWORD", "DATA_DIR", "DB_PATH")
+
+
+def _clear_app_modules() -> None:
+    for module_name in list(sys.modules):
+        if module_name == "app" or module_name.startswith("src."):
+            sys.modules.pop(module_name, None)
+
+
+def _reset_cached_singletons() -> None:
+    module_names = [
+        "src.config",
+        "src.services.database",
+        "src.services.auth",
+        "src.services.api_key_service",
+        "src.services.paper_banana_service",
+        "src.services.provider_config_service",
+        "src.services.ai_service",
+    ]
+    for module_name in module_names:
+        module = sys.modules.get(module_name)
+        if not module:
+            continue
+        for attr in (
+            "_config_instance",
+            "db_manager",
+            "_auth_service",
+            "_api_key_service",
+            "_paper_banana_service",
+            "_provider_config_service",
+            "_ai_service",
+        ):
+            if hasattr(module, attr):
+                setattr(module, attr, None)
+
+
 class BrandSurfaceSmokeTest(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls._tempdir = tempfile.TemporaryDirectory()
-        db_path = Path(cls._tempdir.name) / "app.db"
-        os.environ.setdefault("APP_SECRET_KEY", "test-secret-key")
-        os.environ.setdefault("AUTH_USERNAME", "admin")
-        os.environ.setdefault("AUTH_PASSWORD", "banana123")
-        os.environ["DATA_DIR"] = cls._tempdir.name
+    def setUp(self):
+        self._env_backup = {key: os.environ.get(key) for key in APP_ENV_VARS}
+        self._tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tempdir.cleanup)
+        self.addCleanup(self._restore_environment)
+        self.addCleanup(_reset_cached_singletons)
+        self.addCleanup(_clear_app_modules)
+        db_path = Path(self._tempdir.name) / "app.db"
+
+        os.environ["APP_SECRET_KEY"] = "test-secret-key"
+        os.environ["AUTH_USERNAME"] = "admin"
+        os.environ["AUTH_PASSWORD"] = "banana123"
+        os.environ["DATA_DIR"] = self._tempdir.name
         os.environ["DB_PATH"] = str(db_path)
 
-        import app as app_module
+        _reset_cached_singletons()
+        _clear_app_modules()
+        importlib.invalidate_caches()
 
-        cls.app_module = app_module
-        cls.client = app_module.app.test_client()
+        self.app_module = importlib.import_module("app")
+        self.client = self.app_module.app.test_client()
 
-    @classmethod
-    def tearDownClass(cls):
-        cls._tempdir.cleanup()
+    def _restore_environment(self):
+        for key, value in self._env_backup.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
     def test_login_brand_surface(self):
         response = self.client.get("/login")
