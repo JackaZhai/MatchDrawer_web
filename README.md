@@ -1,14 +1,6 @@
-# SCIdrawer Web
+# MatchDrawer Web
 
-`SCIdrawer_web` is the web-first repository for SCIdrawer. It currently contains the migrated Flask web subset from the desktop project, and future browser-focused changes should land here.
-
-## Current Scope
-
-- Flask entrypoint in `app.py`
-- Server-side templates in `templates/`
-- Static assets in `static/`
-- Core backend modules in `src/`
-- Basic runtime config in `requirements.txt`, `.env.example`, and `pyproject.toml`
+`MatchDrawer_web` is the web-first repository for MatchDrawer. It contains the Flask-based browser console for general diagram work, while preserving the full `PaperBanana` professional workflow for complex structured generation tasks.
 
 ## Run Locally
 
@@ -34,45 +26,23 @@ Override with `AUTH_USERNAME` and `AUTH_PASSWORD` when needed.
 
 ## Deploy On Linux
 
-Recommended stack:
-
-- `gunicorn` for the Flask app
-- `systemd` for process management
-- `nginx` as reverse proxy
-
-Quick setup:
-
 ```bash
-git clone <your-repo-url> /opt/scidrawer/SCIdrawer_web
-cd /opt/scidrawer/SCIdrawer_web
+git clone <your-repo-url> /opt/matchdrawer/MatchDrawer_web
+cd /opt/matchdrawer/MatchDrawer_web
 /usr/bin/python3.14 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Then edit `.env`, especially:
-
-- `APP_SECRET_KEY`
-- `AUTH_USERNAME`
-- `AUTH_PASSWORD`
-- `NANO_BANANA_API_KEY`
-- `NANO_BANANA_HOST`
-
-Start with Gunicorn:
-
-```bash
-.venv/bin/gunicorn -c gunicorn.conf.py app:app
-```
-
 Deployment templates:
 
-- systemd: [deploy/systemd/scidrawer.service](/Users/jackzhai/Desktop/SCIdrawer_web/deploy/systemd/scidrawer.service)
-- nginx: [deploy/nginx/scidrawer.conf](/Users/jackzhai/Desktop/SCIdrawer_web/deploy/nginx/scidrawer.conf)
-- gunicorn config: [gunicorn.conf.py](/Users/jackzhai/Desktop/SCIdrawer_web/gunicorn.conf.py)
-- helper script: [scripts/deploy_linux.sh](/Users/jackzhai/Desktop/SCIdrawer_web/scripts/deploy_linux.sh)
+- systemd: [deploy/systemd/matchdrawer.service](deploy/systemd/matchdrawer.service)
+- nginx: [deploy/nginx/matchdrawer.conf](deploy/nginx/matchdrawer.conf)
+- gunicorn config: [gunicorn.conf.py](gunicorn.conf.py)
+- helper script: [scripts/deploy_linux.sh](scripts/deploy_linux.sh)
 
-## Notes
+Notes:
 
 - Keep `integrations/PaperBanana` present on the server.
 - Reverse proxy `/static/` with nginx when possible.

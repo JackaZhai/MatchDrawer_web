@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用户手册 | SCIdrawer</title>
+    <title>用户手册 | MatchDrawer</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -104,10 +104,10 @@
             <div class="sidebar-header">
                 <a href="/" class="sidebar-brand">
                     <div class="brand-logo">
-                        <img src="{{ url_for('static', filename='app-icon.png') }}" alt="SCIdrawer Logo" class="brand-logo-image">
+                        <img src="{{ url_for('static', filename='app-icon.png') }}" alt="MatchDrawer Logo" class="brand-logo-image">
                     </div>
                     <div class="brand-text">
-                        <div class="brand-title">SCIdrawer</div>
+                        <div class="brand-title">MatchDrawer</div>
             
                     </div>
                 </a>
@@ -138,7 +138,7 @@
                 <div class="topbar-left">
                     <div class="page-title">
                         <h1>用户手册</h1>
-                        <p class="page-subtitle">SCIdrawer 使用指南</p>
+                        <p class="page-subtitle">MatchDrawer 使用指南</p>
                     </div>
                 </div>
             </header>
@@ -147,7 +147,7 @@
                 <div class="manual-hero">
                     <div class="manual-hero-content">
                         <h2>快速掌握平台使用</h2>
-                        <p>本手册覆盖仪表盘、API 密钥管理、图像生成和系统设置等常用功能。</p>
+                        <p>本手册覆盖通用画图、PaperBanana 专业工作流、API 密钥管理和系统设置等常用功能。</p>
                     </div>
                 </div>
 
@@ -191,7 +191,7 @@
                         <section class="manual-section" id="image-generation">
                             <h3>图像生成</h3>
                             <div class="manual-list">
-                                <p>支持文本提示词 + 参数控制，并可上传参考图。本平台集成了先进的 AI 绘图模型（如 Nano Banana 系列），特别适合用于生成高质量的科研插图。</p>
+                                <p>支持文本提示词 + 参数控制，并可上传参考图。MatchDrawer 可用于论文图、流程图、架构图、机制图、对比图和产品示意图；对于复杂、多阶段、需要规划与审图的任务，可直接启用 PaperBanana 专业工作流。</p>
                                 
                                 <h4 style="margin-top: 1rem; margin-bottom: 0.5rem; color: var(--color-text-primary);">4.1 基本生成流程</h4>
                                 <ol style="margin-left: 1.5rem; margin-bottom: 1rem;">
@@ -207,22 +207,23 @@
                                     <li><strong>点击“生成图像”</strong>：等待 AI 处理完成。</li>
                                 </ol>
 
-                                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--color-text-primary);">4.2 科研绘图指南</h4>
-                                <p>Nano Banana 系列模型在科研绘图方面表现出色。为了获得最佳效果，请遵循以下指南。</p>
+                                <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--color-text-primary);">4.2 通用画图指南</h4>
+                                <p>为了获得结构化、可复用的图像结果，请把提示词写成简短设计说明，先交代目标图类型，再补充布局、风格和标签要求。</p>
                                 
-                                <h5 style="margin-top: 1rem; margin-bottom: 0.5rem; color: var(--color-text-primary);">4.2.1 生成科研绘图的关键</h5>
-                                <p><strong>Prompt（提示词）要像写说明书一样，描述越详细，模型生成的图像越结构化，效果越好。</strong></p>
-                                <p>一个实用的科研插图 Prompt，通常需要包含以下要素：</p>
+                                <h5 style="margin-top: 1rem; margin-bottom: 0.5rem; color: var(--color-text-primary);">4.2.1 编写结构化 Prompt</h5>
+                                <p><strong>Prompt（提示词）要像写设计说明一样，目标越清晰，模型生成的图像越结构化、越容易复用。</strong></p>
+                                <p>一个实用的 MatchDrawer Prompt，通常需要包含以下要素：</p>
                                 <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
-                                    <li><strong>主题</strong>：你要画什么（机制 / 流程 / 对比）</li>
-                                    <li><strong>风格</strong>：简洁、技术图、论文可用</li>
-                                    <li><strong>标注要求</strong>：哪些元素必须出现、使用英文标签</li>
-                                    <li><strong>布局规则</strong>：箭头、模块、层级关系</li>
-                                    <li><strong>限制条件</strong>：避免艺术化、渐变、装饰效果</li>
+                                    <li><strong>图类型</strong>：流程图 / 架构图 / 机制图 / 对比图 / 示意图</li>
+                                    <li><strong>核心元素</strong>：哪些模块、角色、设备或概念必须出现</li>
+                                    <li><strong>风格要求</strong>：简洁、技术感、可汇报、可论文使用或品牌化展示</li>
+                                    <li><strong>布局关系</strong>：箭头、层级、时序、并列或对照关系</li>
+                                    <li><strong>限制条件</strong>：避免艺术化装饰、无关背景和多余纹理</li>
                                 </ul>
+                                <p>当任务需要检索参考、分阶段规划、风格修正和审图回路时，优先选择 PaperBanana 专业工作流。</p>
 
                                 <h5 style="margin-top: 1rem; margin-bottom: 0.5rem; color: var(--color-text-primary);">4.2.2 实用 Prompt 案例库</h5>
-                                <p>以下是 7 个经过验证的科研绘图 Prompt 模板，您可以直接复制并根据需要修改：</p>
+                                <p>以下是 7 个可直接复用的结构化 Prompt 模板，覆盖信息图、概念图、流程图、机制图与实验设计等场景，您可以直接复制并根据需要修改：</p>
                                 
                                 <div style="background: var(--color-bg-tertiary); padding: 1rem; border-radius: var(--radius-md); margin-bottom: 1rem;">
                                     <strong>1️⃣ 信息图（案例：单细胞测序的优势）</strong><br>
