@@ -59,6 +59,7 @@ const DOM = {
 
     // 图像生成
     promptInput: document.getElementById('promptInput'),
+    paperPromptInput: document.getElementById('paperPromptInput'),
     generationTextProviderSelect: document.getElementById('generationTextProviderSelect'),
     generationImageProviderSelect: document.getElementById('generationImageProviderSelect'),
     generationTextModelSelect: document.getElementById('generationTextModelSelect'),
@@ -73,8 +74,11 @@ const DOM = {
     referenceImagesInput: document.getElementById('referenceImagesInput'),
     referenceImagesList: document.getElementById('referenceImagesList'),
     generationPreviewContainer: document.getElementById('generationPreviewContainer'),
+    paperPreviewContainer: document.getElementById('paperPreviewContainer'),
     generateBtn: document.getElementById('generateBtn'),
+    paperGenerateBtn: document.getElementById('paperGenerateBtn'),
     resetFormBtn: document.getElementById('resetFormBtn'),
+    paperResetBtn: document.getElementById('paperResetBtn'),
     progressBar: document.getElementById('progressBar'),
     progressText: document.getElementById('progressText'),
     paperStageTitle: document.getElementById('paperStageTitle'),
@@ -88,7 +92,9 @@ const DOM = {
     paperStageItems: document.querySelectorAll('.paper-stage-item'),
     generationWorkflowSummary: document.getElementById('generationWorkflowSummary'),
     downloadBtn: document.getElementById('downloadBtn'),
+    paperDownloadBtn: document.getElementById('paperDownloadBtn'),
     clearBtn: document.getElementById('clearBtn'),
+    paperClearBtn: document.getElementById('paperClearBtn'),
 
     // API 密钥
     currentKeyStatus: document.getElementById('currentKeyStatus'),
@@ -118,10 +124,14 @@ const I18N_STRINGS = {
     'zh-CN': {
         'nav.dashboard': '工作台',
         'nav.image_generation': '图像生成',
+        'nav.gpt_image': 'GPT 画图',
+        'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API 设置',
         'nav.settings': '设置',
         'page.dashboard': '工作台',
         'page.image_generation': '图像生成',
+        'page.gpt_image': 'GPT 画图',
+        'page.paperbanana': 'PaperBanana',
         'page.api_keys': 'API 设置',
         'page.settings': '系统设置',
         'action.toggle_theme': '切换主题',
@@ -188,10 +198,14 @@ const I18N_STRINGS = {
     'en-US': {
         'nav.dashboard': 'Dashboard',
         'nav.image_generation': 'Image Generation',
+        'nav.gpt_image': 'GPT Image',
+        'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API Settings',
         'nav.settings': 'Settings',
         'page.dashboard': 'Dashboard',
         'page.image_generation': 'Image Generation',
+        'page.gpt_image': 'GPT Image',
+        'page.paperbanana': 'PaperBanana',
         'page.api_keys': 'API Settings',
         'page.settings': 'System Settings',
         'action.toggle_theme': 'Toggle theme',
@@ -325,6 +339,12 @@ const PageConfig = {
     'image-generation': {
         titleKey: 'page.image_generation'
     },
+    'gpt-image': {
+        titleKey: 'page.gpt_image'
+    },
+    paperbanana: {
+        titleKey: 'page.paperbanana'
+    },
 
     'api-keys': {
         titleKey: 'page.api_keys'
@@ -370,7 +390,20 @@ WorkflowGraphState.stageOrder = [...PAPER_STAGE_ORDER];
 const PROVIDER_MODEL_CATALOG = {
     grsai: {
         text: ['gemini-3.1-pro', 'gemini-3-pro', 'gemini-2.5-pro'],
-        image: ['sora-image', 'nano-banana-pro', 'gpt-image-1.5', 'nano-banana-fast', 'nano-banana-pro-vt']
+        image: [
+            'sora-image',
+            'gpt-image-1.5',
+            'nano-banana-fast',
+            'nano-banana',
+            'nano-banana-2',
+            'nano-banana-pro',
+            'nano-banana-pro-vt',
+            'nano-banana-2-cl',
+            'nano-banana-pro-cl',
+            'nano-banana-2-4k-cl',
+            'nano-banana-pro-vip',
+            'nano-banana-pro-4k-vip'
+        ]
     },
     openai: {
         text: ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'],
@@ -421,10 +454,17 @@ const ALLOWED_TEXT_MODELS = new Set([
 
 const ALLOWED_IMAGE_MODELS = new Set([
     'sora-image',
-    'nano-banana-pro',
     'gpt-image-1.5',
     'nano-banana-fast',
-    'nano-banana-pro-vt'
+    'nano-banana',
+    'nano-banana-2',
+    'nano-banana-pro',
+    'nano-banana-pro-vt',
+    'nano-banana-2-cl',
+    'nano-banana-pro-cl',
+    'nano-banana-2-4k-cl',
+    'nano-banana-pro-vip',
+    'nano-banana-pro-4k-vip'
 ]);
 const MULTIMODAL_REQUIRED_EXP_MODES = new Set([
     'dev_full',
@@ -554,7 +594,7 @@ function getModelOptionLabel(provider, model, lane = 'text') {
     if (
         lane === 'image' &&
         p === 'grsai' &&
-        ['sora-image', 'gpt-image-1.5', 'nano-banana-fast'].includes(m)
+        ['sora-image', 'gpt-image-1.5', 'nano-banana-fast', 'nano-banana', 'nano-banana-2'].includes(m)
     ) {
         return `${model}（价格便宜，测试用）`;
     }
@@ -961,7 +1001,42 @@ async function pollBackgroundGenerationTask(taskId) {
     }
 }
 
-function startBackgroundGenerationTracking(taskId) {
+function getGenerationMode(mode = 'generic') {
+    return mode === 'paper' ? 'paper' : 'generic';
+}
+
+function getGenerationContext(mode = 'generic') {
+    const currentMode = getGenerationMode(mode);
+    if (currentMode === 'paper') {
+        return {
+            mode: 'paper',
+            promptInput: DOM.paperPromptInput,
+            previewContainer: DOM.paperPreviewContainer,
+            generateBtn: DOM.paperGenerateBtn,
+            downloadBtn: DOM.paperDownloadBtn,
+            clearBtn: DOM.paperClearBtn,
+            successTitle: 'PaperBanana',
+            placeholderIcon: 'fa-diagram-project',
+            placeholderTitle: 'PaperBanana 结果将显示在这里',
+            placeholderHint: '填写任务描述并点击“运行 PaperBanana”开始'
+        };
+    }
+
+    return {
+        mode: 'generic',
+        promptInput: DOM.promptInput,
+        previewContainer: DOM.generationPreviewContainer,
+        generateBtn: DOM.generateBtn,
+        downloadBtn: DOM.downloadBtn,
+        clearBtn: DOM.clearBtn,
+        successTitle: '图像生成',
+        placeholderIcon: 'fa-image',
+        placeholderTitle: '生成的图像将显示在这里',
+        placeholderHint: '填写提示词并点击"生成图像"开始'
+    };
+}
+
+function startBackgroundGenerationTracking(taskId, mode = 'generic') {
     const id = String(taskId || '').trim();
     if (!id) return;
 
@@ -971,6 +1046,7 @@ function startBackgroundGenerationTracking(taskId) {
     stopBackgroundGenerationTracking();
     AppState.backgroundGenerationTracker = {
         taskId: id,
+        mode: getGenerationMode(mode),
         timerId: null,
         startedAt: Date.now(),
         consecutiveErrors: 0
@@ -1773,11 +1849,19 @@ function bindEvents() {
 
     // 图像生成事件
     if (DOM.generateBtn) {
-        DOM.generateBtn.addEventListener('click', generateImage);
+        DOM.generateBtn.addEventListener('click', () => generateImage('generic'));
+    }
+
+    if (DOM.paperGenerateBtn) {
+        DOM.paperGenerateBtn.addEventListener('click', () => generateImage('paper'));
     }
 
     if (DOM.resetFormBtn) {
-        DOM.resetFormBtn.addEventListener('click', resetImageForm);
+        DOM.resetFormBtn.addEventListener('click', () => resetImageForm('generic'));
+    }
+
+    if (DOM.paperResetBtn) {
+        DOM.paperResetBtn.addEventListener('click', () => resetImageForm('paper'));
     }
 
     if (DOM.referenceImagesInput) {
@@ -1787,7 +1871,11 @@ function bindEvents() {
     }
 
     if (DOM.clearBtn) {
-        DOM.clearBtn.addEventListener('click', clearPreview);
+        DOM.clearBtn.addEventListener('click', () => clearPreview('generic'));
+    }
+
+    if (DOM.paperClearBtn) {
+        DOM.paperClearBtn.addEventListener('click', () => clearPreview('paper'));
     }
 
     // 聊天事件
@@ -1994,6 +2082,21 @@ function showPage(pageId) {
             loadDashboardData();
             break;
         case 'image-generation':
+            loadGenerationModelOptionsFromKeys();
+            if (DOM.promptInput) {
+                requestAnimationFrame(() => {
+                    DOM.promptInput.focus();
+                    const end = DOM.promptInput.value.length;
+                    DOM.promptInput.setSelectionRange(end, end);
+                });
+            }
+            break;
+        case 'gpt-image':
+            if (typeof GPTImage !== 'undefined' && GPTImage.init) {
+                GPTImage.init();
+            }
+            break;
+        case 'paperbanana':
             loadGenerationModelOptionsFromKeys();
             updateWorkflowPreview(false);
             break;
@@ -2349,39 +2452,40 @@ async function updateDashboardStats() {
 }
 
 // 生成图像
-async function generateImage() {
-    if (!DOM.promptInput || !DOM.promptInput.value.trim()) {
+async function generateImage(mode = 'generic') {
+    const context = getGenerationContext(mode);
+    const isPaperMode = context.mode === 'paper';
+    if (!context.promptInput || !context.promptInput.value.trim()) {
         ErrorHandler.handleValidationError('提示词', '请输入提示词');
-        DOM.promptInput.focus();
+        context.promptInput && context.promptInput.focus();
         return;
     }
 
     if (AppState.isLoading) return;
 
-    // 检查API密钥
     if (!AppState.hasKey) {
         ErrorHandler.handleValidationError('API设置', '请先在“API 设置”页面添加 Key');
         showPage('api-keys');
         return;
     }
 
-    const prompt = DOM.promptInput.value;
-    const textProvider = DOM.generationTextProviderSelect ? DOM.generationTextProviderSelect.value : 'grsai';
+    const prompt = context.promptInput.value;
+    const textProvider = isPaperMode && DOM.generationTextProviderSelect ? DOM.generationTextProviderSelect.value : '';
     const imageProvider = DOM.generationImageProviderSelect ? DOM.generationImageProviderSelect.value : 'grsai';
-    const provider = imageProvider || textProvider || 'grsai';
-    const textModel = DOM.generationTextModelSelect ? DOM.generationTextModelSelect.value : 'gemini-2.5-pro';
+    const provider = imageProvider || 'grsai';
+    const textModel = isPaperMode && DOM.generationTextModelSelect ? DOM.generationTextModelSelect.value : '';
     const imageModel = DOM.generationImageModelSelect ? DOM.generationImageModelSelect.value : 'nano-banana-pro';
     const imageSize = DOM.generationImageSizeSelect
         ? String(DOM.generationImageSizeSelect.value || '1K').toUpperCase().trim()
         : '1K';
-    const workflowExpMode = DOM.generationExpModeSelect ? (DOM.generationExpModeSelect.value || '').trim() : '';
-    const workflowRetrieval = DOM.generationRetrievalSelect ? (DOM.generationRetrievalSelect.value || '').trim() : '';
-    const workflowCriticEnabled = DOM.generationCriticEnabledCheck ? !!DOM.generationCriticEnabledCheck.checked : true;
-    const workflowEvalEnabled = DOM.generationEvalEnabledCheck ? !!DOM.generationEvalEnabledCheck.checked : true;
-    const workflowCriticRoundsRaw = DOM.generationCriticRoundsInput ? Number(DOM.generationCriticRoundsInput.value) : 3;
+    const workflowExpMode = isPaperMode && DOM.generationExpModeSelect ? (DOM.generationExpModeSelect.value || '').trim() : 'vanilla';
+    const workflowRetrieval = isPaperMode && DOM.generationRetrievalSelect ? (DOM.generationRetrievalSelect.value || '').trim() : '';
+    const workflowCriticEnabled = isPaperMode && DOM.generationCriticEnabledCheck ? !!DOM.generationCriticEnabledCheck.checked : false;
+    const workflowEvalEnabled = isPaperMode && DOM.generationEvalEnabledCheck ? !!DOM.generationEvalEnabledCheck.checked : false;
+    const workflowCriticRoundsRaw = isPaperMode && DOM.generationCriticRoundsInput ? Number(DOM.generationCriticRoundsInput.value) : 0;
     const workflowCriticRounds = Number.isFinite(workflowCriticRoundsRaw)
         ? Math.max(0, Math.min(10, Math.trunc(workflowCriticRoundsRaw)))
-        : 3;
+        : 0;
     const needsMultimodal = workflowNeedsMultimodal(
         workflowExpMode,
         workflowCriticEnabled,
@@ -2401,18 +2505,22 @@ async function generateImage() {
 
     stopBackgroundGenerationTracking();
     AppState.isLoading = true;
-    const generationController = { cancelled: false, taskId: null };
+    const generationController = { cancelled: false, taskId: null, mode: context.mode };
     AppState.currentGeneration = generationController;
-    DOM.generateBtn.disabled = true;
-    DOM.generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+    if (context.generateBtn) {
+        context.generateBtn.disabled = true;
+        context.generateBtn.innerHTML = isPaperMode
+            ? '<i class="fas fa-spinner fa-spin"></i> 运行中...'
+            : '<i class="fas fa-spinner fa-spin"></i> 生成中...';
+    }
 
-    // 更新进度条
-    if (DOM.progressBar) DOM.progressBar.style.width = '10%';
-    if (DOM.progressText) DOM.progressText.textContent = '10%';
-    updatePaperStage('queued', 'i18n:paper.message.task_submitted_waiting', 'running');
+    if (isPaperMode) {
+        if (DOM.progressBar) DOM.progressBar.style.width = '10%';
+        if (DOM.progressText) DOM.progressText.textContent = '10%';
+        updatePaperStage('queued', 'i18n:paper.message.task_submitted_waiting', 'running');
+    }
 
     try {
-        // 使用API服务生成图像
         const result = await window.APIService.generateImage(prompt, {
             model: 'nano-banana-pro',
             provider,
@@ -2427,40 +2535,37 @@ async function generateImage() {
             maxCriticRounds: workflowCriticEnabled ? workflowCriticRounds : 0,
             aspectRatio: 'auto',
             imageSize: ['1K', '2K', '4K'].includes(imageSize) ? imageSize : '1K',
-            urls: AppState.referenceImages.map((item) => item.dataUrl),
+            urls: isPaperMode ? [] : AppState.referenceImages.map((item) => item.dataUrl),
             cancellation: generationController,
             onProgress: (progress, message, payload) => {
-                // 更新进度条
-                if (DOM.progressBar) {
+                if (isPaperMode && DOM.progressBar) {
                     DOM.progressBar.style.width = `${progress}%`;
                 }
-                if (DOM.progressText) {
+                if (isPaperMode && DOM.progressText) {
                     DOM.progressText.textContent = `${progress}%`;
                 }
-
-                // 显示进度消息
                 if (message) {
                     console.log('生成进度:', message);
                 }
-                if (payload && payload.id) {
+                if (isPaperMode && payload && payload.id) {
                     updatePaperTaskId(payload.id);
                 }
-                updatePaperStage(payload?.stage, payload?.stageMessage || message, payload?.status || 'running');
+                if (isPaperMode) {
+                    updatePaperStage(payload?.stage, payload?.stageMessage || message, payload?.status || 'running');
+                }
             },
             onComplete: (resultData) => {
-                // 处理生成结果
-                handleImageGenerationComplete(resultData);
+                handleImageGenerationComplete(resultData, context.mode);
             }
         });
 
         if (result.success) {
-            // 更新使用统计
             window.APIService.updateStats('image');
-
-            // 更新仪表盘数据
             updateDashboardStats();
-
-    ErrorHandler.handleSuccess('图像生成任务已提交，正在处理中...', '图像生成');
+            ErrorHandler.handleSuccess(
+                isPaperMode ? 'PaperBanana 任务已提交，正在处理中...' : '图像生成任务已提交，正在处理中...',
+                context.successTitle
+            );
         } else {
             throw new Error(result.message || '图像生成失败');
         }
@@ -2474,58 +2579,70 @@ async function generateImage() {
         if (error && error.isTimeout) {
             AppState.isLoading = false;
             AppState.currentGeneration = null;
-            DOM.generateBtn.disabled = false;
-            DOM.generateBtn.innerHTML = '<i class="fas fa-magic"></i> 生成图像';
-            if (DOM.progressBar) DOM.progressBar.style.width = '95%';
-            if (DOM.progressText) DOM.progressText.textContent = '95%';
-            updatePaperStage('processing', 'i18n:paper.message.poll_timeout', 'running');
-            updatePaperTaskId(finalTaskId);
+            if (context.generateBtn) {
+                context.generateBtn.disabled = false;
+                context.generateBtn.innerHTML = isPaperMode
+                    ? '<i class="fas fa-diagram-project"></i> 运行 PaperBanana'
+                    : '<i class="fas fa-magic"></i> 生成图像';
+            }
+            if (isPaperMode && DOM.progressBar) DOM.progressBar.style.width = '95%';
+            if (isPaperMode && DOM.progressText) DOM.progressText.textContent = '95%';
+            if (isPaperMode) {
+                updatePaperStage('processing', 'i18n:paper.message.poll_timeout', 'running');
+                updatePaperTaskId(finalTaskId);
+            }
             if (finalTaskId) {
-                startBackgroundGenerationTracking(finalTaskId);
+                startBackgroundGenerationTracking(finalTaskId, context.mode);
             }
             showNotification(`任务仍在后台执行，已自动继续查询。任务ID：${finalTaskId || '未知'}`, 'warning');
             return;
         }
 
         if (!(error && error.isCanceled)) {
-            ErrorHandler.handleApiError(error, '图像生成');
+            ErrorHandler.handleApiError(error, context.successTitle);
         }
 
-        // 重置UI状态
         AppState.isLoading = false;
         AppState.currentGeneration = null;
-        DOM.generateBtn.disabled = false;
-        DOM.generateBtn.innerHTML = '<i class="fas fa-magic"></i> 生成图像';
-
-        if (DOM.progressBar) DOM.progressBar.style.width = '0%';
-        if (DOM.progressText) DOM.progressText.textContent = '0%';
-        if (error && error.isCanceled) {
-            updatePaperStage('failed', 'i18n:paper.message.task_canceled', 'failed');
-        } else {
-            updatePaperStage('failed', error.message || '任务执行失败', 'failed');
+        if (context.generateBtn) {
+            context.generateBtn.disabled = false;
+            context.generateBtn.innerHTML = isPaperMode
+                ? '<i class="fas fa-diagram-project"></i> 运行 PaperBanana'
+                : '<i class="fas fa-magic"></i> 生成图像';
         }
-        updatePaperTaskId(finalTaskId);
+
+        if (isPaperMode && DOM.progressBar) DOM.progressBar.style.width = '0%';
+        if (isPaperMode && DOM.progressText) DOM.progressText.textContent = '0%';
+        if (isPaperMode) {
+            if (error && error.isCanceled) {
+                updatePaperStage('failed', 'i18n:paper.message.task_canceled', 'failed');
+            } else {
+                updatePaperStage('failed', error.message || '任务执行失败', 'failed');
+            }
+            updatePaperTaskId(finalTaskId);
+        }
     }
 }
 
-function getGenerationPreviewContainer() {
-    return DOM.generationPreviewContainer || document.querySelector('.preview-container');
+function getGenerationPreviewContainer(mode = 'generic') {
+    return getGenerationContext(mode).previewContainer || document.querySelector('.preview-container');
 }
 
-function buildGenerationPreviewPlaceholderHtml() {
+function buildGenerationPreviewPlaceholderHtml(mode = 'generic') {
+    const context = getGenerationContext(mode);
     return `
         <div class="preview-placeholder">
             <div class="preview-placeholder-icon">
-                <i class="fas fa-image"></i>
+                <i class="fas ${context.placeholderIcon}"></i>
             </div>
-            <p>生成的图像将显示在这里</p>
-            <p class="text-sm text-tertiary">填写提示词并点击"生成图像"开始</p>
+            <p>${context.placeholderTitle}</p>
+            <p class="text-sm text-tertiary">${context.placeholderHint}</p>
         </div>
     `;
 }
 
-function swapGenerationPreviewContent(contentHtml, animate = true) {
-    const previewContainer = getGenerationPreviewContainer();
+function swapGenerationPreviewContent(contentHtml, animate = true, mode = 'generic') {
+    const previewContainer = getGenerationPreviewContainer(mode);
     if (!previewContainer) return;
 
     const shouldAnimate = !!animate && !prefersReducedMotion();
@@ -2564,31 +2681,44 @@ function swapGenerationPreviewContent(contentHtml, animate = true) {
 }
 
 // 处理图像生成完成
-function handleImageGenerationComplete(resultData) {
+function handleImageGenerationComplete(resultData, mode = 'generic') {
+    const finalMode = getGenerationMode(
+        mode
+        || (AppState.currentGeneration && AppState.currentGeneration.mode)
+        || (AppState.backgroundGenerationTracker && AppState.backgroundGenerationTracker.mode)
+        || 'generic'
+    );
+    const context = getGenerationContext(finalMode);
     stopBackgroundGenerationTracking(resultData && resultData.id ? String(resultData.id) : '');
     AppState.isLoading = false;
     AppState.currentGeneration = null;
-    DOM.generateBtn.disabled = false;
-    DOM.generateBtn.innerHTML = '<i class="fas fa-magic"></i> 生成图像';
+    if (context.generateBtn) {
+        context.generateBtn.disabled = false;
+        context.generateBtn.innerHTML = finalMode === 'paper'
+            ? '<i class="fas fa-diagram-project"></i> 运行 PaperBanana'
+            : '<i class="fas fa-magic"></i> 生成图像';
+    }
 
     // 更新进度条
-    if (DOM.progressBar) {
+    if (finalMode === 'paper' && DOM.progressBar) {
         DOM.progressBar.style.width = '100%';
     }
-    if (DOM.progressText) {
+    if (finalMode === 'paper' && DOM.progressText) {
         DOM.progressText.textContent = '100%';
     }
-    updatePaperStage(resultData.stage || 'completed', resultData.stageMessage || 'i18n:paper.message.generation_done', 'succeeded');
-    updatePaperTaskId(resultData && resultData.id ? resultData.id : '');
+    if (finalMode === 'paper') {
+        updatePaperStage(resultData.stage || 'completed', resultData.stageMessage || 'i18n:paper.message.generation_done', 'succeeded');
+        updatePaperTaskId(resultData && resultData.id ? resultData.id : '');
+    }
 
     // 启用下载按钮
-    if (DOM.downloadBtn) {
-        DOM.downloadBtn.disabled = false;
+    if (context.downloadBtn) {
+        context.downloadBtn.disabled = false;
 
         // 设置下载链接
         if (resultData.results && resultData.results.length > 0 && resultData.results[0].url) {
             const imageUrl = resultData.results[0].url;
-            DOM.downloadBtn.onclick = () => {
+            context.downloadBtn.onclick = () => {
                 const link = document.createElement('a');
                 link.href = imageUrl;
                 link.download = `matchbox-image-${Date.now()}.png`;
@@ -2611,7 +2741,7 @@ function handleImageGenerationComplete(resultData) {
                     <p>图像生成成功！</p>
                     <p class="text-sm text-tertiary">${result.content || '点击下载按钮保存图像'}</p>
                 </div>
-            `, true);
+            `, true, finalMode);
         } else {
             swapGenerationPreviewContent(`
                 <div class="preview-success">
@@ -2621,11 +2751,11 @@ function handleImageGenerationComplete(resultData) {
                     <p>图像生成成功！</p>
                     <p class="text-sm text-tertiary">${result.content || '生成完成'}</p>
                 </div>
-            `, true);
+            `, true, finalMode);
         }
     }
 
-    ErrorHandler.handleSuccess('图像生成成功', '图像生成');
+    ErrorHandler.handleSuccess(finalMode === 'paper' ? 'PaperBanana 运行完成' : '图像生成成功', context.successTitle);
 
     // 添加到活动记录
     addActivity({
@@ -2652,80 +2782,87 @@ async function cancelCurrentGeneration() {
 }
 
 // 重置图像表单
-async function resetImageForm() {
-    if (AppState.isLoading) {
+async function resetImageForm(mode = 'generic') {
+    const context = getGenerationContext(mode);
+    if (AppState.isLoading && AppState.currentGeneration && AppState.currentGeneration.mode === context.mode) {
         await cancelCurrentGeneration();
     }
     stopBackgroundGenerationTracking();
 
-    if (DOM.promptInput) DOM.promptInput.value = '';
-    if (DOM.generationTextProviderSelect && DOM.generationTextProviderSelect.options.length > 0) {
-        DOM.generationTextProviderSelect.selectedIndex = 0;
-        localStorage.setItem('generationTextProvider', DOM.generationTextProviderSelect.value || 'grsai');
+    if (context.promptInput) context.promptInput.value = '';
+    if (context.mode === 'generic') {
+        if (DOM.generationImageProviderSelect && DOM.generationImageProviderSelect.options.length > 0) {
+            DOM.generationImageProviderSelect.selectedIndex = 0;
+            localStorage.setItem('generationImageProvider', DOM.generationImageProviderSelect.value || 'grsai');
+        }
+        if (DOM.generationImageProviderSelect) {
+            refreshGenerationModelOptions();
+        }
+        if (DOM.generationImageModelSelect && DOM.generationImageModelSelect.options.length > 0) {
+            DOM.generationImageModelSelect.selectedIndex = 0;
+        }
+        if (DOM.generationImageSizeSelect) {
+            DOM.generationImageSizeSelect.value = '1K';
+            localStorage.setItem('generationImageSize', '1K');
+        }
+        if (DOM.referenceImagesInput) DOM.referenceImagesInput.value = '';
+        AppState.referenceImages = [];
+        renderReferenceImages();
+    } else {
+        if (DOM.generationTextProviderSelect && DOM.generationTextProviderSelect.options.length > 0) {
+            DOM.generationTextProviderSelect.selectedIndex = 0;
+            localStorage.setItem('generationTextProvider', DOM.generationTextProviderSelect.value || 'grsai');
+        }
+        if (DOM.generationTextModelSelect && DOM.generationTextModelSelect.options.length > 0) {
+            DOM.generationTextModelSelect.selectedIndex = 0;
+        }
+        if (DOM.generationExpModeSelect) {
+            DOM.generationExpModeSelect.value = '';
+            localStorage.setItem('generationExpMode', '');
+        }
+        if (DOM.generationRetrievalSelect) {
+            DOM.generationRetrievalSelect.value = '';
+            localStorage.setItem('generationRetrieval', '');
+        }
+        if (DOM.generationCriticEnabledCheck) {
+            DOM.generationCriticEnabledCheck.checked = true;
+            localStorage.setItem('generationCriticEnabled', '1');
+        }
+        if (DOM.generationEvalEnabledCheck) {
+            DOM.generationEvalEnabledCheck.checked = true;
+            localStorage.setItem('generationEvalEnabled', '1');
+        }
+        if (DOM.generationCriticRoundsInput) {
+            DOM.generationCriticRoundsInput.value = '3';
+            DOM.generationCriticRoundsInput.disabled = false;
+            localStorage.setItem('generationCriticRounds', '3');
+        }
+        refreshGenerationWorkflowControlState();
+        updateWorkflowPreview(false);
+        if (DOM.progressBar) DOM.progressBar.style.width = '0%';
+        if (DOM.progressText) DOM.progressText.textContent = '0%';
+        updatePaperStage('queued', 'i18n:paper.message.idle_hint', 'idle');
+        updatePaperTaskId('');
     }
-    if (DOM.generationImageProviderSelect && DOM.generationImageProviderSelect.options.length > 0) {
-        DOM.generationImageProviderSelect.selectedIndex = 0;
-        localStorage.setItem('generationImageProvider', DOM.generationImageProviderSelect.value || 'grsai');
-    }
-    if (DOM.generationTextProviderSelect || DOM.generationImageProviderSelect) {
-        refreshGenerationModelOptions();
-    }
-    if (DOM.generationTextModelSelect && DOM.generationTextModelSelect.options.length > 0) {
-        DOM.generationTextModelSelect.selectedIndex = 0;
-    }
-    if (DOM.generationImageModelSelect && DOM.generationImageModelSelect.options.length > 0) {
-        DOM.generationImageModelSelect.selectedIndex = 0;
-    }
-    if (DOM.generationExpModeSelect) {
-        DOM.generationExpModeSelect.value = '';
-        localStorage.setItem('generationExpMode', '');
-    }
-    if (DOM.generationRetrievalSelect) {
-        DOM.generationRetrievalSelect.value = '';
-        localStorage.setItem('generationRetrieval', '');
-    }
-    if (DOM.generationImageSizeSelect) {
-        DOM.generationImageSizeSelect.value = '1K';
-        localStorage.setItem('generationImageSize', '1K');
-    }
-    if (DOM.generationCriticEnabledCheck) {
-        DOM.generationCriticEnabledCheck.checked = true;
-        localStorage.setItem('generationCriticEnabled', '1');
-    }
-    if (DOM.generationEvalEnabledCheck) {
-        DOM.generationEvalEnabledCheck.checked = true;
-        localStorage.setItem('generationEvalEnabled', '1');
-    }
-    if (DOM.generationCriticRoundsInput) {
-        DOM.generationCriticRoundsInput.value = '3';
-        DOM.generationCriticRoundsInput.disabled = false;
-        localStorage.setItem('generationCriticRounds', '3');
-    }
-    refreshGenerationWorkflowControlState();
-    updateWorkflowPreview(false);
-    if (DOM.referenceImagesInput) DOM.referenceImagesInput.value = '';
-    AppState.referenceImages = [];
-    renderReferenceImages();
 
-    if (DOM.progressBar) DOM.progressBar.style.width = '0%';
-    if (DOM.progressText) DOM.progressText.textContent = '0%';
-    if (DOM.downloadBtn) DOM.downloadBtn.disabled = true;
-    updatePaperStage('queued', 'i18n:paper.message.idle_hint', 'idle');
-    updatePaperTaskId('');
+    if (context.downloadBtn) context.downloadBtn.disabled = true;
     AppState.isLoading = false;
     AppState.currentGeneration = null;
-    if (DOM.generateBtn) {
-        DOM.generateBtn.disabled = false;
-        DOM.generateBtn.innerHTML = '<i class="fas fa-magic"></i> 生成图像';
+    if (context.generateBtn) {
+        context.generateBtn.disabled = false;
+        context.generateBtn.innerHTML = context.mode === 'paper'
+            ? '<i class="fas fa-diagram-project"></i> 运行 PaperBanana'
+            : '<i class="fas fa-magic"></i> 生成图像';
     }
 
-    swapGenerationPreviewContent(buildGenerationPreviewPlaceholderHtml(), true);
+    swapGenerationPreviewContent(buildGenerationPreviewPlaceholderHtml(context.mode), true, context.mode);
 }
 
 // 清空预览
-function clearPreview() {
-    resetImageForm();
-    ErrorHandler.handleSuccess('预览已清空', '图像生成');
+function clearPreview(mode = 'generic') {
+    const context = getGenerationContext(mode);
+    resetImageForm(context.mode);
+    ErrorHandler.handleSuccess('预览已清空', context.successTitle);
 }
 
 // 发送消息
@@ -3883,18 +4020,5 @@ window.App = {
     addActivity,
     updateDashboardStats
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 

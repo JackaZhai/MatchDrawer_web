@@ -59,7 +59,9 @@ class BrandSurfacesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("MatchDrawer", html)
         self.assertIn("架构图模板", html)
-        self.assertIn("PaperBanana 专业工作流", html)
+        self.assertIn(">图像生成<", html)
+        self.assertIn(">PaperBanana<", html)
+        self.assertIn("结果预览", html)
 
     def test_manual_mentions_general_drawing_scope(self):
         response = self.client.get("/manual")

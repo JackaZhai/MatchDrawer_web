@@ -45,6 +45,14 @@
                     <i class="fas fa-palette nav-icon"></i>
                     <span class="nav-label" data-i18n="nav.image_generation">图像生成</span>
                 </a>
+                <a href="#" class="nav-item" data-page="gpt-image">
+                    <i class="fas fa-robot nav-icon"></i>
+                    <span class="nav-label" data-i18n="nav.gpt_image">GPT 画图</span>
+                </a>
+                <a href="#" class="nav-item" data-page="paperbanana">
+                    <i class="fas fa-diagram-project nav-icon"></i>
+                    <span class="nav-label" data-i18n="nav.paperbanana">PaperBanana</span>
+                </a>
                 <a href="#" class="nav-item" data-page="api-keys">
                     <i class="fas fa-key nav-icon"></i>
                     <span class="nav-label" data-i18n="nav.api_keys">API 设置</span>
@@ -156,29 +164,146 @@
 
                 <div class="page-section" id="page-image-generation">
                     <div class="image-generation">
+                        <div class="generation-layout generation-workbench">
+                            <div class="parameters-panel generation-sidebar">
+                                <div class="panel-title-row generation-header">
+                                    <div>
+                                        <div class="workbench-eyebrow">Image Desk</div>
+                                        <h3 class="content-card-title">图像生成</h3>
+                                    </div>
+                                    <div class="workbench-status">高频工作台</div>
+                                </div>
+
+                                <div class="parameter-section generation-section-primary">
+                                    <div class="section-head">
+                                        <i class="fas fa-pen-nib"></i>
+                                        <span>提示词</span>
+                                    </div>
+                                    <textarea id="promptInput" class="form-textarea prompt-editor prompt-editor-lg"
+                                              placeholder="例如：设计一张权限流程图，展示用户登录后的角色分流逻辑；或绘制一个 AI 系统架构图，标出客户端、网关、任务队列和模型服务之间的关系"
+                                              rows="8"></textarea>
+                                </div>
+
+                                <div class="parameter-section model-section generation-divider-top" id="generationModelSection">
+                                    <div class="section-head">
+                                        <i class="fas fa-sliders"></i>
+                                        <span>图像模型</span>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">图像供应商</label>
+                                        <select id="generationImageProviderSelect" class="form-select">
+                                            <option value="grsai">grsai</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">图像生成模型</label>
+                                        <select id="generationImageModelSelect" class="form-select">
+                                            <option value="nano-banana-pro">nano-banana-pro</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">图像质量</label>
+                                        <select id="generationImageSizeSelect" class="form-select">
+                                            <option value="1K">1K</option>
+                                            <option value="2K">2K</option>
+                                            <option value="4K">4K</option>
+                                        </select>
+                                        <div class="form-hint">高质量适合最终出图，低质量更适合快速试错。</div>
+                                    </div>
+                                </div>
+
+                                <div class="parameter-section generation-divider-top">
+                                    <div class="section-head">
+                                        <i class="fas fa-images"></i>
+                                        <span>参考图</span>
+                                    </div>
+                                    <label class="upload-box upload-box-compact" for="referenceImagesInput">
+                                        <i class="fas fa-upload"></i>
+                                        <span>上传参考图</span>
+                                    </label>
+                                    <input type="file" id="referenceImagesInput" class="form-input" accept="image/*" multiple>
+                                    <div class="parameter-hint">最多 3 张，每张不超过 5MB。</div>
+                                    <div class="reference-list" id="referenceImagesList"></div>
+                                </div>
+
+                                <div class="form-actions action-dock action-dock-sticky generation-divider-top">
+                                    <button class="btn btn-primary btn-lg" id="generateBtn">
+                                        <i class="fas fa-magic"></i>
+                                        生成图像
+                                    </button>
+                                    <button class="btn btn-outline" id="resetFormBtn">
+                                        <i class="fas fa-redo"></i>
+                                        重置
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="preview-panel generation-main">
+                                <div class="workbench-card preview-shell">
+                                    <div class="preview-header">
+                                        <div>
+                                            <div class="workbench-eyebrow">Preview</div>
+                                            <h3 class="content-card-title">结果预览</h3>
+                                        </div>
+                                        <div class="preview-meta">右侧实时查看最新结果</div>
+                                    </div>
+                                    <div class="preview-container preview-container-tall" id="generationPreviewContainer">
+                                        <div class="preview-placeholder">
+                                            <div class="preview-placeholder-icon">
+                                                <i class="fas fa-image"></i>
+                                            </div>
+                                            <p>生成的图像将显示在这里</p>
+                                            <p class="text-sm text-tertiary">左侧调整参数，点击“生成图像”后在这里查看结果</p>
+                                        </div>
+                                    </div>
+                                    <div class="generation-controls generation-controls-inline">
+                                        <div class="preview-footer-note">结果生成后可直接下载，也可以保留当前参数继续迭代。</div>
+                                        <div class="control-group">
+                                            <button class="btn btn-outline btn-sm" id="downloadBtn" disabled>
+                                                <i class="fas fa-download"></i>
+                                                下载
+                                            </button>
+                                            <button class="btn btn-outline btn-sm" id="clearBtn">
+                                                <i class="fas fa-trash"></i>
+                                                清空
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="page-section" id="page-paperbanana">
+                    <div class="image-generation">
                         <div class="generation-layout">
-                            <!-- 参数面板 -->
                             <div class="parameters-panel">
                                 <div class="panel-title-row">
-                                    <h3 class="content-card-title">生成参数</h3>
+                                    <h3 class="content-card-title">PaperBanana 工作流</h3>
+                                </div>
+
+                                <div class="parameter-section">
+                                    <div class="parameter-hint">独立的 PaperBanana 专业工作流界面，适合需要检索、规划、审图和评估的复杂任务。</div>
+                                    <div class="parameter-hint">基础模型、图像尺寸与参考图沿用“图像生成”页面中的设置。</div>
                                 </div>
 
                                 <div class="parameter-section">
                                     <div class="section-head">
                                         <i class="fas fa-pen-nib"></i>
-                                        <span>提示词</span>
+                                        <span>任务描述</span>
                                         <span class="required">*</span>
                                     </div>
-                                    <textarea id="promptInput" class="form-textarea prompt-editor"
-                                              placeholder="例如：设计一张权限流程图，展示用户登录后的角色分流逻辑；或绘制一个 AI 系统架构图，标出客户端、网关、任务队列和模型服务之间的关系"
+                                    <textarea id="paperPromptInput" class="form-textarea prompt-editor"
+                                              placeholder="例如：规划并生成一张多阶段系统架构图，先整理模块关系，再统一风格并进行审图迭代"
                                               rows="6"></textarea>
-                                    <div class="parameter-hint">尽量包含主体、风格、细节和构图要求。</div>
+                                    <div class="parameter-hint">这里单独填写 PaperBanana 工作流任务，不与通用图像生成共用输入框。</div>
                                 </div>
 
-                                <div class="parameter-section model-section" id="generationModelSection">
+                                <div class="parameter-section model-section">
                                     <div class="section-head">
-                                        <i class="fas fa-sliders"></i>
-                                        <span>模型</span>
+                                        <i class="fas fa-diagram-project"></i>
+                                        <span>工作流参数</span>
                                     </div>
                                     <div class="parameter-grid-2">
                                         <div class="form-group">
@@ -190,16 +315,11 @@
                                             <select id="generationTextModelSelect" class="form-select">
                                                 <option value="gpt-4o-mini">gpt-4o-mini</option>
                                             </select>
+                                            <div class="form-hint">PaperBanana 的规划、检索与审图链路会使用语言模型。</div>
                                         </div>
                                         <div class="form-group">
-                                            <label class="form-label">图像供应商</label>
-                                            <select id="generationImageProviderSelect" class="form-select">
-                                                <option value="grsai">grsai</option>
-                                            </select>
-                                            <label class="form-label" style="margin-top: 0.5rem;">图像生成模型</label>
-                                            <select id="generationImageModelSelect" class="form-select">
-                                                <option value="nano-banana-pro">nano-banana-pro</option>
-                                            </select>
+                                            <label class="form-label">当前图像模型来源</label>
+                                            <div class="parameter-hint">沿用“图像生成”页面里选择的图像供应商、图像模型与图像质量。</div>
                                         </div>
                                     </div>
                                     <div class="parameter-grid-2" style="margin-top: 0.75rem;">
@@ -226,15 +346,6 @@
                                     </div>
                                     <div class="parameter-grid-2" style="margin-top: 0.5rem;">
                                         <div class="form-group">
-                                            <label class="form-label">图像质量</label>
-                                            <select id="generationImageSizeSelect" class="form-select">
-                                                <option value="1K">1K</option>
-                                                <option value="2K">2K</option>
-                                                <option value="4K">4K</option>
-                                            </select>
-                                            <div class="form-hint">更高质量会增加生成耗时与资源消耗。</div>
-                                        </div>
-                                        <div class="form-group">
                                             <label class="form-label">审图轮数（critic）</label>
                                             <input id="generationCriticRoundsInput" class="form-input" type="number" min="0" max="10" step="1" value="3" />
                                             <div class="form-hint">0 表示关闭审图；仅在包含 critic 的流程里生效。</div>
@@ -254,44 +365,28 @@
                                     <div class="parameter-hint workflow-summary" id="generationWorkflowSummary">
                                         当前流程预览：PaperBanana 完整流程（含审图与评估）
                                     </div>
-                                    <div class="parameter-hint">通用图像任务可直接生成；复杂结构化任务建议使用 PaperBanana。</div>
-                                </div>
-
-                                <div class="parameter-section">
-                                    <div class="section-head">
-                                        <i class="fas fa-images"></i>
-                                        <span>参考图</span>
-                                    </div>
-                                    <label class="upload-box" for="referenceImagesInput">
-                                        <i class="fas fa-upload"></i>
-                                        <span>点击或拖拽上传参考图</span>
-                                    </label>
-                                    <input type="file" id="referenceImagesInput" class="form-input" accept="image/*" multiple>
-                                    <div class="parameter-hint">最多 3 张，每张不超过 5MB。</div>
-                                    <div class="reference-list" id="referenceImagesList"></div>
                                 </div>
 
                                 <div class="form-actions action-dock">
-                                    <button class="btn btn-primary btn-lg" id="generateBtn">
-                                        <i class="fas fa-magic"></i>
-                                        生成图像
+                                    <button class="btn btn-primary btn-lg" id="paperGenerateBtn">
+                                        <i class="fas fa-diagram-project"></i>
+                                        运行 PaperBanana
                                     </button>
-                                    <button class="btn btn-outline" id="resetFormBtn">
+                                    <button class="btn btn-outline" id="paperResetBtn">
                                         <i class="fas fa-redo"></i>
                                         重置
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- 预览面板 -->
                             <div class="preview-panel">
-                                <div class="preview-container" id="generationPreviewContainer">
+                                <div class="preview-container" id="paperPreviewContainer">
                                     <div class="preview-placeholder">
                                         <div class="preview-placeholder-icon">
-                                            <i class="fas fa-image"></i>
+                                            <i class="fas fa-diagram-project"></i>
                                         </div>
-                                        <p>生成的图像将显示在这里</p>
-                                        <p class="text-sm text-tertiary">填写提示词并点击"生成图像"开始</p>
+                                        <p>PaperBanana 结果将显示在这里</p>
+                                        <p class="text-sm text-tertiary">填写任务描述并点击“运行 PaperBanana”开始</p>
                                     </div>
                                 </div>
 
@@ -329,11 +424,11 @@
                                         </div>
                                     </div>
                                     <div class="control-group">
-                                        <button class="btn btn-outline btn-sm" id="downloadBtn" disabled>
+                                        <button class="btn btn-outline btn-sm" id="paperDownloadBtn" disabled>
                                             <i class="fas fa-download"></i>
                                             下载
                                         </button>
-                                        <button class="btn btn-outline btn-sm" id="clearBtn">
+                                        <button class="btn btn-outline btn-sm" id="paperClearBtn">
                                             <i class="fas fa-trash"></i>
                                             清空
                                         </button>
@@ -456,6 +551,134 @@
 
                     </div>
                 </div>
+                <!-- GPT 画图页面 -->
+                <div class="page-section" id="page-gpt-image">
+                    <div id="gptImagePlayground" class="gpt-playground">
+                        <!-- 工具栏 -->
+                        <div class="gpt-toolbar">
+                            <div class="gpt-toolbar-title">
+                                <i class="fas fa-robot"></i>
+                                <span>GPT Image 画图工作台</span>
+                            </div>
+                            <div class="gpt-toolbar-actions">
+                                <button class="btn btn-ghost btn-sm" id="gptExportBtn" title="导出历史">
+                                    <i class="fas fa-file-export"></i>
+                                    导出
+                                </button>
+                                <button class="btn btn-ghost btn-sm" id="gptImportBtn" title="导入历史">
+                                    <i class="fas fa-file-import"></i>
+                                    导入
+                                </button>
+                                <input type="file" id="gptImportInput" accept="application/json" style="display:none">
+                                <button class="btn btn-ghost btn-sm" id="gptSettingsBtn" title="画图设置">
+                                    <i class="fas fa-sliders-h"></i>
+                                    设置
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 画廊区域 -->
+                        <div class="gpt-gallery" id="gptGalleryGrid"></div>
+
+                        <!-- 底部输入栏 -->
+                        <div class="gpt-input-bar">
+                            <div class="gpt-input-bar-inner">
+                                <!-- 参考图列表 -->
+                                <div class="gpt-input-images" id="gptInputImagesList"></div>
+
+                                <!-- 提示词输入 -->
+                                <div class="gpt-input-row">
+                                    <textarea
+                                        id="gptPromptInput"
+                                        class="form-textarea gpt-prompt-input"
+                                        placeholder="描述你想生成的图片... 支持拖拽、粘贴上传参考图，Ctrl+Enter 快速生成"
+                                        rows="2"
+                                    ></textarea>
+                                </div>
+
+                                <!-- 参数和按钮行 -->
+                                <div class="gpt-input-actions">
+                                    <div class="gpt-params-row">
+                                        <select id="gptModelSelect" class="form-select gpt-param-select" title="模型">
+                                            <option value="gpt-image-1">GPT Image 1</option>
+                                            <option value="dall-e-3">DALL-E 3</option>
+                                            <option value="gpt-image-1.5">GPT Image 1.5</option>
+                                        </select>
+                                        <select id="gptSizeSelect" class="form-select gpt-param-select" title="尺寸">
+                                            <option value="1024x1024">1024 x 1024</option>
+                                            <option value="1024x1536">1024 x 1536</option>
+                                            <option value="1536x1024">1536 x 1024</option>
+                                            <option value="auto">自动</option>
+                                        </select>
+                                        <select id="gptQualitySelect" class="form-select gpt-param-select" title="质量">
+                                            <option value="auto">自动</option>
+                                            <option value="low">低</option>
+                                            <option value="medium">中</option>
+                                            <option value="high">高</option>
+                                        </select>
+                                        <select id="gptFormatSelect" class="form-select gpt-param-select" title="格式">
+                                            <option value="png">PNG</option>
+                                            <option value="jpeg">JPEG</option>
+                                            <option value="webp">WebP</option>
+                                        </select>
+                                        <input type="number" id="gptNInput" class="form-input gpt-param-input" value="1" min="1" max="4" title="生成数量">
+                                    </div>
+
+                                    <div class="gpt-action-buttons">
+                                        <input type="file" id="gptFileInput" accept="image/*" multiple style="display:none">
+                                        <button class="btn btn-outline btn-sm" id="gptAttachBtn" title="添加参考图">
+                                            <i class="fas fa-paperclip"></i>
+                                        </button>
+                                        <button class="btn btn-outline btn-sm" id="gptUrlBtn" title="添加图片 URL">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                        <button class="btn btn-primary" id="gptSubmitBtn">
+                                            <i class="fas fa-magic"></i>
+                                            生成图像
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 设置面板 -->
+                        <div class="gpt-settings-panel" id="gptSettingsPanel">
+                            <div class="gpt-settings-header">
+                                <h3><i class="fas fa-sliders-h"></i> GPT 画图设置</h3>
+                                <button class="btn btn-ghost btn-sm" id="gptSettingsCloseBtn">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="gpt-settings-body">
+                                <div class="form-group">
+                                    <label class="form-label">API 协议</label>
+                                    <select id="gptSettingsProtocol" class="form-select">
+                                        <option value="images">Images API (标准图片生成)</option>
+                                        <option value="responses">Responses API (流式/兼容)</option>
+                                    </select>
+                                    <div class="form-hint">Images API 更直接；Responses API 支持流式和更多兼容场景</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">API Base URL（可选）</label>
+                                    <input type="text" id="gptSettingsBaseUrl" class="form-input" placeholder="留空使用系统默认">
+                                    <div class="form-hint">自定义 OpenAI 兼容接口地址，如：https://api.openai.com/v1</div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">API Key（可选）</label>
+                                    <input type="password" id="gptSettingsApiKey" class="form-input" placeholder="留空使用系统 API 设置中的密钥">
+                                    <div class="form-hint">自定义 API Key，优先级高于系统设置</div>
+                                </div>
+                            </div>
+                            <div class="gpt-settings-footer">
+                                <button class="btn btn-primary" id="gptSettingsSaveBtn">
+                                    <i class="fas fa-save"></i>
+                                    保存设置
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 设置页面 -->
                 <div class="page-section" id="page-settings">
                     <div class="settings">
@@ -552,13 +775,8 @@
     </script>
 
     <script src="{{ url_for('static', filename='js/api-service.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/gpt-image.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/integrations.js') }}"></script>
 </body>
 </html>
-
-
-
-
-
-

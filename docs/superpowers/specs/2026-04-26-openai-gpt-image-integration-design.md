@@ -4,16 +4,16 @@
 
 把 OpenAI 官方 `gpt-image` 图像 API 接入现有 MatchDrawer Web，使用户可以在现有 `图像生成` 页面中选择 `openai` 作为图像提供商，并使用保存在 `API 设置` 中的 OpenAI key 完成文生图与参考图编辑。
 
-基于 2026-04-26 查到的 OpenAI 官方文档，本设计把 `gpt-image-2` 视为当前默认接入目标；同时兼容 `gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini`，以应对用户已有配置和文档缓存差异。
+基于 2026-04-27 重新核对的 OpenAI 官方文档，本次“先接入官方 gpt-image API”明确以 Images API 为目标，首版支持 `gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini`。`gpt-image-2` 当前更适合通过 Responses API 的 `image_generation` 工具接入，不纳入这次最小闭环实现。
 
 **Scope**
 
 - 保持现有页面结构、`/api/draw` 提交入口和结果展示流程不变。
 - 在通用 `图像生成` 页面中补全 `openai` 图像 provider 的真实后端分支。
-- 首批支持 OpenAI 图像模型：`gpt-image-2`、`gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini`。
+- 首批支持 OpenAI 图像模型：`gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini`。
 - 支持两种输入模式：
-  - 仅文本提示词：调用 OpenAI image generation endpoint。
-  - 文本提示词 + 参考图：调用 OpenAI image edit endpoint。
+  - 仅文本提示词：调用 OpenAI Images API generation endpoint。
+  - 文本提示词 + 参考图：调用 OpenAI Images API edit endpoint。
 - 继续保留现有 `PaperBanana` 工作流和其它 provider 行为，不在本次改动中重写。
 
 **Non-Goals**
@@ -37,7 +37,7 @@
 这样可以在最小改动范围内完成真实接入：
 
 - 前端操作路径不变，用户学习成本最低。
-- `openai` 走官方 API，避免继续把 `gpt-image-*` 仅当作兼容模型名处理。
+- `openai` 走官方 Images API，避免继续把 `gpt-image-*` 仅当作兼容模型名处理。
 - 非 `openai` provider 和 `PaperBanana` 工作流不受影响，便于回归验证。
 
 **Alternatives Considered**
@@ -72,20 +72,19 @@
   - 将 OpenAI 返回的 base64 图像整理成前端预览与下载所需的统一 payload。
 - 文本生成时：
   - 调用 OpenAI `v1/images/generations`。
-  - 使用模型 `gpt-image-2`、`gpt-image-1.5`、`gpt-image-1` 或 `gpt-image-1-mini`。
+  - 使用模型 `gpt-image-1.5`、`gpt-image-1` 或 `gpt-image-1-mini`。
 - 参考图编辑时：
   - 调用 OpenAI `v1/images/edits`。
   - 将前端传来的 data URL 解码为文件内容，以 multipart 方式上传。
+  - 第一版只允许 `gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini` 这些当前 Images API 明确列出的模型。
 - 首版映射规则：
-  - `gpt-image-2` 优先使用官方支持的更大尺寸档位。
-  - `gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini` 保持使用当前已知稳定尺寸档位。
+  - `gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini` 使用当前已知稳定尺寸档位。
   - 具体尺寸映射在实现阶段以当日官方文档参数为准，先封装在后端服务层，避免前端写死。
 - 输出统一使用 base64 图像结果，避免依赖 GPT image 不支持的 URL 返回格式。
 
 3. Frontend adjustments
 
 - 在 [static/js/app.js](/Users/jackzhai/Desktop/SCIdrawer_web/static/js/app.js) 的 provider/model catalog 中，把 `openai` 图像模型补全为：
-  - `gpt-image-2`
   - `gpt-image-1.5`
   - `gpt-image-1`
   - `gpt-image-1-mini`
@@ -95,7 +94,7 @@
 
 4. Provider configuration
 
-- 更新 [src/services/provider_config_service.py](/Users/jackzhai/Desktop/SCIdrawer_web/src/services/provider_config_service.py) 中 `openai` 的默认图像模型为 `gpt-image-2`。
+- 更新 [src/services/provider_config_service.py](/Users/jackzhai/Desktop/SCIdrawer_web/src/services/provider_config_service.py) 中 `openai` 的默认图像模型为 `gpt-image-1.5`。
 - 保持现有 key 存储与 base URL 逻辑：
   - 默认 base URL 仍为 `https://api.openai.com/v1`
   - 如果用户自定义 OpenAI-compatible base URL，则继续使用用户保存值
@@ -124,11 +123,11 @@
   - `image_provider == "openai"` 时 `generate_image()` 走 OpenAI 分支。
   - 无参考图时构造 generation 请求。
   - 有参考图时构造 edit 请求。
-  - `openai` 默认模型回退为 `gpt-image-2`。
+  - `openai` 默认模型回退为 `gpt-image-1.5`。
   - 缺少 OpenAI key 时返回可读错误。
   - 非 `openai` provider 仍走原有 `PaperBanana` 路径。
 - 更新前端/静态目录测试，覆盖：
-  - `openai` provider 的模型目录包含 `gpt-image-2`、`gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini`
+  - `openai` provider 的模型目录包含 `gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini`
   - 现有 `grsai` 模型目录回归不丢失
 
 **Implementation Notes**
@@ -136,13 +135,16 @@
 - 这一轮优先保证“官方 OpenAI `gpt-image` 可用”，不把同步生成也强行包装成后台任务。
 - 如果同步响应与现有轮询流程冲突，优先在前端为即时完成结果增加兼容，而不是把 OpenAI 分支硬塞进本地 job runner。
 - 参考图当前已经以 data URL 存在前端状态中，因此不需要先引入文件上传后端存储。
-- OpenAI 官方图像文档在 2026-04-26 存在新旧页面并存现象：`gpt-image-2` 页面与模型总览都显示它是当前 state-of-the-art，而旧的目录页仍能搜到 `gpt-image-1.5`。实现时应优先跟随独立模型页与当前模型总览。
+- OpenAI 官方文档当前分成两条能力路径：
+  - Images API：适合这次最小闭环接入，当前明确列出 `gpt-image-1.5`、`gpt-image-1`、`gpt-image-1-mini`。
+  - Responses API image generation tool：支持 `gpt-image-2` 等更现代的图像工作流，但会引入另一套调用面。
+- 这次实现优先选择更小的 Images API 集成面，后续如果需要 `gpt-image-2`，再单独做 Responses API 接入。
 
 **References**
 
-- OpenAI models overview: [developers.openai.com/api/docs/models](https://developers.openai.com/api/docs/models)
-- OpenAI GPT Image 2 model page: [developers.openai.com/api/docs/models/gpt-image-2](https://developers.openai.com/api/docs/models/gpt-image-2)
 - OpenAI GPT Image 1.5 model page: [developers.openai.com/api/docs/models/gpt-image-1.5](https://developers.openai.com/api/docs/models/gpt-image-1.5)
 - OpenAI GPT Image 1 model page: [developers.openai.com/api/docs/models/gpt-image-1](https://developers.openai.com/api/docs/models/gpt-image-1)
+- OpenAI GPT Image 1 Mini model page: [developers.openai.com/api/docs/models/gpt-image-1-mini](https://developers.openai.com/api/docs/models/gpt-image-1-mini)
 - OpenAI image generation guide: [developers.openai.com/api/docs/guides/image-generation](https://developers.openai.com/api/docs/guides/image-generation)
 - OpenAI images API reference: [developers.openai.com/api/reference/resources/images](https://developers.openai.com/api/reference/resources/images)
+- OpenAI image generation tool guide: [developers.openai.com/api/docs/guides/tools-image-generation](https://developers.openai.com/api/docs/guides/tools-image-generation)

@@ -1,0 +1,17 @@
+Flask==3.0.3
+gunicorn
+requests==2.32.3
+cryptography==42.0.5
+aiofiles
+anthropic
+google-auth
+google-genai
+huggingface_hub
+json_repair
+matplotlib
+numpy
+openai
+pillow
+python-dotenv
+pyyaml
+tqdm
