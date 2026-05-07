@@ -124,12 +124,14 @@ const I18N_STRINGS = {
     'zh-CN': {
         'nav.dashboard': '工作台',
         'nav.image_generation': '图像生成',
+        'nav.comfyui_workbench': '生图工作台',
         'nav.gpt_image': 'GPT 画图',
         'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API 设置',
         'nav.settings': '设置',
         'page.dashboard': '工作台',
         'page.image_generation': '图像生成',
+        'page.comfyui_workbench': '生图工作台',
         'page.gpt_image': 'GPT 画图',
         'page.paperbanana': 'PaperBanana',
         'page.api_keys': 'API 设置',
@@ -198,12 +200,14 @@ const I18N_STRINGS = {
     'en-US': {
         'nav.dashboard': 'Dashboard',
         'nav.image_generation': 'Image Generation',
+        'nav.comfyui_workbench': 'Image Workbench',
         'nav.gpt_image': 'GPT Image',
         'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API Settings',
         'nav.settings': 'Settings',
         'page.dashboard': 'Dashboard',
         'page.image_generation': 'Image Generation',
+        'page.comfyui_workbench': 'Image Workbench',
         'page.gpt_image': 'GPT Image',
         'page.paperbanana': 'PaperBanana',
         'page.api_keys': 'API Settings',
@@ -338,6 +342,9 @@ const PageConfig = {
     },
     'image-generation': {
         titleKey: 'page.image_generation'
+    },
+    'comfyui-workbench': {
+        titleKey: 'page.comfyui_workbench'
     },
     'gpt-image': {
         titleKey: 'page.gpt_image'
@@ -2089,6 +2096,11 @@ function showPage(pageId) {
                     const end = DOM.promptInput.value.length;
                     DOM.promptInput.setSelectionRange(end, end);
                 });
+            }
+            break;
+        case 'comfyui-workbench':
+            if (window.ComfyUIWorkbench && window.ComfyUIWorkbench.init) {
+                window.ComfyUIWorkbench.init();
             }
             break;
         case 'gpt-image':
@@ -4020,5 +4032,4 @@ window.App = {
     addActivity,
     updateDashboardStats
 };
-
 
