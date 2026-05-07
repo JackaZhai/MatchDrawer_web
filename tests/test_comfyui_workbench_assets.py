@@ -128,6 +128,14 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("DOM.runBtn.disabled = false", workbench_js)
         self.assertIn("setTimeout", workbench_js)
 
+    def test_workbench_handles_normalized_backend_history_payload(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+
+        self.assertIn("payload.status === 'succeeded'", workbench_js)
+        self.assertIn("renderResults(payload.results || [])", workbench_js)
+        self.assertIn("payload.status || 'running'", workbench_js)
+        self.assertIn("normalized backend history", workbench_js)
+
     def test_workbench_result_thumbnails_use_backend_view_route(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
 
@@ -146,6 +154,15 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn(".comfy-input-control", css)
         self.assertIn(".comfy-result-grid", css)
         self.assertIn(".comfy-result-thumb", css)
+
+    def test_property_panel_remains_visible_on_tablet_and_mobile(self):
+        css = Path("static/css/comfyui-workbench.css").read_text(encoding="utf-8")
+
+        self.assertIn("@media (max-width: 1180px)", css)
+        self.assertIn(".comfy-property-panel", css)
+        self.assertNotIn(".comfy-property-panel {\n    display: none;", css)
+        self.assertIn("grid-template-areas", css)
+        self.assertIn("grid-area: properties", css)
 
 
 if __name__ == "__main__":

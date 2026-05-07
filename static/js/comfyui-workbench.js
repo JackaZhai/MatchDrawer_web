@@ -440,6 +440,21 @@
 
         requestJson(API.history(promptId))
             .then((payload) => {
+                // Primary path: normalized backend history from /api/comfyui/history/<prompt_id>.
+                if (payload && payload.promptId && typeof payload.status === 'string') {
+                    if (payload.status === 'succeeded') {
+                        renderResults(payload.results || []);
+                        setLog(`生成完成，返回 ${(payload.results || []).length} 张图片`);
+                        setRunning(false);
+                        return;
+                    }
+
+                    const normalizedStatus = payload.status || 'running';
+                    setLog(`生成中: ${normalizedStatus}`);
+                    State.pollTimer = window.setTimeout(() => pollHistory(promptId), 1800);
+                    return;
+                }
+
                 const record = extractHistoryRecord(payload, promptId);
                 if (historySucceeded(record)) {
                     const images = collectResultImages(record);
