@@ -1,0 +1,24 @@
+{
+  "1": {
+    "class_type": "GrsAINanoBananaTextImage",
+    "inputs": {
+      "prompt": "create four clean scientific product-style image variations on a white background",
+      "model": "nano-banana-pro",
+      "aspectRatio": "1:1",
+      "imageSize": "1K",
+      "batch_size": 4
+    },
+    "_meta": {
+      "title": "Batch Generate"
+    }
+  },
+  "2": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": ["1", 0]
+    },
+    "_meta": {
+      "title": "Preview Image"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference_1.png"
+    },
+    "_meta": {
+      "title": "Reference Image 1"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "reference_2.png"
+    },
+    "_meta": {
+      "title": "Reference Image 2"
+    }
+  },
+  "3": {
+    "class_type": "GrsAINanoBananaTextImage",
+    "inputs": {
+      "prompt": "merge the reference images into one clean product-style composition",
+      "model": "nano-banana-pro",
+      "aspectRatio": "1:1",
+      "imageSize": "1K",
+      "image1": ["1", 0],
+      "image2": ["2", 0]
+    },
+    "_meta": {
+      "title": "Image Fusion"
+    }
+  },
+  "4": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": ["3", 0]
+    },
+    "_meta": {
+      "title": "Preview Image"
+    }
+  }
+}

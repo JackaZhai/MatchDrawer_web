@@ -36,6 +36,8 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("window.ComfyUIWorkbench", workbench_js)
         self.assertIn("/api/comfyui/status", workbench_js)
         self.assertIn("/api/comfyui/prompt", workbench_js)
+        self.assertIn("/api/comfyui/workflows/starter/", workbench_js)
+        self.assertIn("/api/comfyui/upload-image", workbench_js)
         self.assertNotIn("127.0.0.1:8188", workbench_js)
         self.assertNotIn("localhost:8188", workbench_js)
 
@@ -63,6 +65,16 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("<span>Text / Image</span>", workbench_shell)
         self.assertNotIn("GrsAI", workbench_shell)
         self.assertNotIn("grsai-", workbench_shell)
+
+    def test_workbench_loads_starter_workflows_from_template_buttons(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+
+        self.assertIn("async function loadTemplateWorkflow", workbench_js)
+        self.assertIn("API.starterWorkflow(name)", workbench_js)
+        self.assertIn("await normalizeWorkflow(payload.workflow, payload.name || name)", workbench_js)
+        self.assertIn("DOM.root.querySelectorAll('[data-template]')", workbench_js)
+        self.assertIn("loadTemplateWorkflow(button.getAttribute('data-template'))", workbench_js)
+        self.assertIn("loadTemplateWorkflow,", workbench_js)
 
     def test_workbench_js_contains_import_render_and_selection_paths(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
@@ -115,6 +127,22 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("State.workflow[node.id].inputs[name] = parsedValue", workbench_js)
         self.assertIn("node.inputs[name] = parsedValue", workbench_js)
         self.assertIn("data-comfy-input-name", workbench_js)
+
+    def test_workbench_uploads_images_for_load_image_nodes(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+        css = Path("static/css/comfyui-workbench.css").read_text(encoding="utf-8")
+
+        self.assertIn("function isLoadImageNode", workbench_js)
+        self.assertIn("function renderLoadImageInputs", workbench_js)
+        self.assertIn("function readFileAsDataUrl", workbench_js)
+        self.assertIn("async function uploadImageForSelectedNode", workbench_js)
+        self.assertIn("data-comfy-image-upload", workbench_js)
+        self.assertIn("API.uploadImage", workbench_js)
+        self.assertIn("new FileReader", workbench_js)
+        self.assertIn("updateSelectedNodeInput('image', uploadedName)", workbench_js)
+        self.assertIn("uploadImageForSelectedNode,", workbench_js)
+        self.assertIn(".comfy-image-upload", css)
+        self.assertIn(".comfy-upload-button", css)
 
     def test_workbench_runs_prompt_and_polls_backend_history(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
@@ -254,6 +282,296 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertFalse(payload["runDisabled"])
         self.assertIn("生成完成", payload["logText"])
 
+    def test_template_button_imports_starter_workflow_in_node(self):
+        script = textwrap.dedent(
+            r"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const source = fs.readFileSync('static/js/comfyui-workbench.js', 'utf8');
+
+            let templateClickHandler = null;
+            const templateButton = {
+                addEventListener(event, handler) {
+                    if (event === 'click') {
+                        templateClickHandler = handler;
+                    }
+                },
+                getAttribute(name) {
+                    return name === 'data-template' ? 'image-fusion' : null;
+                },
+            };
+
+            function createElement(id) {
+                return {
+                    id,
+                    textContent: '',
+                    innerHTML: '',
+                    disabled: false,
+                    value: '',
+                    files: [],
+                    style: {},
+                    parentElement: { clientWidth: 960, clientHeight: 640 },
+                    classList: {
+                        toggle() {},
+                        remove() {},
+                    },
+                    addEventListener() {},
+                    setAttribute() {},
+                    querySelectorAll(selector) {
+                        if (id === 'comfyWorkbenchRoot' && selector === '[data-template]') {
+                            return [templateButton];
+                        }
+                        return [];
+                    },
+                    querySelector() { return null; },
+                };
+            }
+
+            const elements = {};
+            [
+                'comfyWorkbenchRoot',
+                'comfyConnectionStatus',
+                'comfyImportBtn',
+                'comfyImportInput',
+                'comfyInstallBtn',
+                'comfyStartBtn',
+                'comfyRunBtn',
+                'comfyCanvas',
+                'comfyLinkLayer',
+                'comfyEmptyState',
+                'comfyPropertyPanel',
+                'comfyRunLog',
+                'comfyResults',
+            ].forEach((id) => {
+                elements[id] = createElement(id);
+            });
+
+            const calls = [];
+            const starterWorkflow = {
+                '1': { class_type: 'LoadImage', inputs: { image: 'input.png' } },
+            };
+            const sandbox = {
+                console,
+                setTimeout,
+                clearTimeout,
+                document: {
+                    getElementById(id) {
+                        return elements[id] || null;
+                    },
+                },
+                fetch(url, options = {}) {
+                    calls.push({ url, options });
+                    if (url === '/api/comfyui/status') {
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({ connection: { connected: true } }),
+                        });
+                    }
+                    if (url === '/api/comfyui/workflows/starter/image-fusion') {
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({ name: 'image-fusion', workflow: starterWorkflow }),
+                        });
+                    }
+                    if (url === '/api/comfyui/workflows/import') {
+                        const workflow = JSON.parse(options.body).workflow;
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({
+                                workflow,
+                                nodes: [{
+                                    id: '1',
+                                    title: 'LoadImage',
+                                    classType: 'LoadImage',
+                                    kind: 'core',
+                                    inputs: { image: 'input.png' },
+                                    position: { x: 120, y: 120 },
+                                }],
+                                links: [],
+                                nodeCount: 1,
+                            }),
+                        });
+                    }
+                    throw new Error(`unexpected fetch ${url}`);
+                },
+            };
+            sandbox.window = {
+                setTimeout,
+                clearTimeout,
+            };
+
+            (async () => {
+                vm.runInNewContext(source, sandbox, { filename: 'comfyui-workbench.js' });
+                sandbox.window.ComfyUIWorkbench.init();
+                if (!templateClickHandler) {
+                    throw new Error('template click handler was not registered');
+                }
+                await templateClickHandler();
+                await Promise.resolve();
+
+                console.log(JSON.stringify({
+                    starterCalled: calls.some((call) => call.url === '/api/comfyui/workflows/starter/image-fusion'),
+                    importCalled: calls.some((call) => call.url === '/api/comfyui/workflows/import'),
+                    nodeCount: sandbox.window.ComfyUIWorkbench._state.nodes.length,
+                    logText: elements.comfyRunLog.textContent,
+                }));
+            })().catch((error) => {
+                console.error(error && error.stack ? error.stack : error);
+                process.exit(1);
+            });
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script],
+            cwd=Path.cwd(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertTrue(payload["starterCalled"])
+        self.assertTrue(payload["importCalled"])
+        self.assertEqual(payload["nodeCount"], 1)
+        self.assertIn("image-fusion", payload["logText"])
+
+    def test_upload_image_updates_load_image_node_in_node(self):
+        script = textwrap.dedent(
+            r"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const source = fs.readFileSync('static/js/comfyui-workbench.js', 'utf8');
+
+            function createElement(id) {
+                return {
+                    id,
+                    textContent: '',
+                    innerHTML: '',
+                    disabled: false,
+                    value: '',
+                    files: [],
+                    style: {},
+                    parentElement: { clientWidth: 960, clientHeight: 640 },
+                    classList: {
+                        toggle() {},
+                        remove() {},
+                    },
+                    addEventListener() {},
+                    setAttribute() {},
+                    querySelectorAll() { return []; },
+                    querySelector() { return null; },
+                };
+            }
+
+            const elements = {};
+            [
+                'comfyWorkbenchRoot',
+                'comfyConnectionStatus',
+                'comfyImportBtn',
+                'comfyImportInput',
+                'comfyInstallBtn',
+                'comfyStartBtn',
+                'comfyRunBtn',
+                'comfyCanvas',
+                'comfyLinkLayer',
+                'comfyEmptyState',
+                'comfyPropertyPanel',
+                'comfyRunLog',
+                'comfyResults',
+            ].forEach((id) => {
+                elements[id] = createElement(id);
+            });
+
+            let uploadBody = null;
+            function FileReader() {}
+            FileReader.prototype.readAsDataURL = function readAsDataURL(file) {
+                this.result = `data:image/png;base64,${file.name}`;
+                this.onload();
+            };
+
+            const sandbox = {
+                console,
+                setTimeout,
+                clearTimeout,
+                FileReader,
+                document: {
+                    getElementById(id) {
+                        return elements[id] || null;
+                    },
+                },
+                fetch(url, options = {}) {
+                    if (url === '/api/comfyui/status') {
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({ connection: { connected: true } }),
+                        });
+                    }
+                    if (url === '/api/comfyui/upload-image') {
+                        uploadBody = JSON.parse(options.body);
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({ name: 'uploaded/ref.png' }),
+                        });
+                    }
+                    throw new Error(`unexpected fetch ${url}`);
+                },
+            };
+            sandbox.window = {
+                setTimeout,
+                clearTimeout,
+            };
+
+            (async () => {
+                vm.runInNewContext(source, sandbox, { filename: 'comfyui-workbench.js' });
+                sandbox.window.ComfyUIWorkbench.init();
+
+                const state = sandbox.window.ComfyUIWorkbench._state;
+                state.workflow = {
+                    '1': { class_type: 'LoadImage', inputs: { image: 'old.png' } },
+                };
+                state.nodes = [{
+                    id: '1',
+                    title: 'LoadImage',
+                    classType: 'LoadImage',
+                    kind: 'core',
+                    inputs: { image: 'old.png' },
+                    position: { x: 120, y: 120 },
+                }];
+                state.selectedNodeId = '1';
+
+                await sandbox.window.ComfyUIWorkbench.uploadImageForSelectedNode({ name: 'ref.png' });
+
+                console.log(JSON.stringify({
+                    uploadBody,
+                    nodeImage: state.nodes[0].inputs.image,
+                    workflowImage: state.workflow['1'].inputs.image,
+                    logText: elements.comfyRunLog.textContent,
+                    panelHtml: elements.comfyPropertyPanel.innerHTML,
+                }));
+            })().catch((error) => {
+                console.error(error && error.stack ? error.stack : error);
+                process.exit(1);
+            });
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script],
+            cwd=Path.cwd(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(payload["uploadBody"]["filename"], "ref.png")
+        self.assertIn("data:image/png;base64,ref.png", payload["uploadBody"]["image"])
+        self.assertEqual(payload["nodeImage"], "uploaded/ref.png")
+        self.assertEqual(payload["workflowImage"], "uploaded/ref.png")
+        self.assertIn("已上传参考图", payload["logText"])
+        self.assertIn("uploaded/ref.png", payload["panelHtml"])
+
     def test_workbench_result_thumbnails_use_backend_view_route(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
 
@@ -270,6 +588,7 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn(".comfy-input-form", css)
         self.assertIn(".comfy-input-field", css)
         self.assertIn(".comfy-input-control", css)
+        self.assertIn(".comfy-image-upload", css)
         self.assertIn(".comfy-result-grid", css)
         self.assertIn(".comfy-result-thumb", css)
 
@@ -301,8 +620,11 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("State.startingRuntime = false", workbench_js)
         self.assertIn("DOM.installBtn.disabled = false", workbench_js)
         self.assertIn("DOM.startBtn.disabled = false", workbench_js)
-        self.assertIn("requestJson(API.runtimeInstall, { method: 'POST', body: '{}' })", workbench_js)
-        self.assertIn("requestJson(API.runtimeStart, { method: 'POST', body: '{}' })", workbench_js)
+        self.assertIn("RUNTIME_ACTION_HEADERS", workbench_js)
+        self.assertIn("'X-ComfyUI-Runtime-Action': 'confirm-local-runtime'", workbench_js)
+        self.assertIn("requestJson(API.runtimeInstall", workbench_js)
+        self.assertIn("requestJson(API.runtimeStart", workbench_js)
+        self.assertIn("headers: RUNTIME_ACTION_HEADERS", workbench_js)
         self.assertIn("DOM.installBtn.addEventListener('click', () => installRuntime())", workbench_js)
         self.assertIn("DOM.startBtn.addEventListener('click', () => startRuntime())", workbench_js)
         self.assertIn("启动请求已发送，正在检查连接状态", workbench_js)
@@ -316,6 +638,8 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertEqual(workflow["2"]["class_type"], "PreviewImage")
         self.assertEqual(workflow["2"]["inputs"]["images"], ["1", 0])
         self.assertIn("GrsAI", json.dumps(workflow))
+        self.assertTrue(Path("integrations/comfyui_grsai/workflows/image_fusion_api.json").exists())
+        self.assertTrue(Path("integrations/comfyui_grsai/workflows/batch_generate_api.json").exists())
 
     def test_runtime_actions_prevent_duplicate_posts_and_hide_upstream_url(self):
         script = textwrap.dedent(
@@ -379,8 +703,8 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
                         return elements[id] || null;
                     },
                 },
-                fetch(url) {
-                    calls.push(url);
+                fetch(url, options = {}) {
+                    calls.push({ url, options });
                     if (url === '/api/comfyui/status') {
                         return Promise.resolve({
                             ok: true,
@@ -433,8 +757,10 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
                 await secondStart;
 
                 console.log(JSON.stringify({
-                    installPosts: calls.filter((url) => url === '/api/comfyui/runtime/install').length,
-                    startPosts: calls.filter((url) => url === '/api/comfyui/runtime/start').length,
+                    installPosts: calls.filter((call) => call.url === '/api/comfyui/runtime/install').length,
+                    startPosts: calls.filter((call) => call.url === '/api/comfyui/runtime/start').length,
+                    installHeader: calls.find((call) => call.url === '/api/comfyui/runtime/install').options.headers['X-ComfyUI-Runtime-Action'],
+                    startHeader: calls.find((call) => call.url === '/api/comfyui/runtime/start').options.headers['X-ComfyUI-Runtime-Action'],
                     installDisabledDuringRequest,
                     startDisabledDuringRequest,
                     installDisabledAfterRequest: elements.comfyInstallBtn.disabled,
@@ -459,6 +785,8 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         payload = json.loads(result.stdout.strip().splitlines()[-1])
         self.assertEqual(payload["installPosts"], 1)
         self.assertEqual(payload["startPosts"], 1)
+        self.assertEqual(payload["installHeader"], "confirm-local-runtime")
+        self.assertEqual(payload["startHeader"], "confirm-local-runtime")
         self.assertTrue(payload["installDisabledDuringRequest"])
         self.assertTrue(payload["startDisabledDuringRequest"])
         self.assertFalse(payload["installDisabledAfterRequest"])

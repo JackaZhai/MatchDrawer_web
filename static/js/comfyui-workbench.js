@@ -38,6 +38,7 @@
     const API = {
         status: '/api/comfyui/status',
         importWorkflow: '/api/comfyui/workflows/import',
+        starterWorkflow: (name) => `/api/comfyui/workflows/starter/${encodeURIComponent(name)}`,
         prompt: '/api/comfyui/prompt',
         history: (id) => `/api/comfyui/history/${encodeURIComponent(id)}`,
         uploadImage: '/api/comfyui/upload-image',
@@ -47,6 +48,9 @@
     };
 
     const DOM = {};
+    const RUNTIME_ACTION_HEADERS = {
+        'X-ComfyUI-Runtime-Action': 'confirm-local-runtime',
+    };
 
     function cacheDom() {
         DOM.root = document.getElementById('comfyWorkbenchRoot');
@@ -65,10 +69,14 @@
     }
 
     async function requestJson(url, options = {}) {
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),
+        };
         const response = await fetch(url, {
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
             ...options,
+            headers,
         });
         if (!response.ok) {
             throw new Error(await response.text());
@@ -188,9 +196,7 @@
         }
     }
 
-    async function importWorkflowFile(file) {
-        const text = await file.text();
-        const workflow = JSON.parse(text);
+    async function normalizeWorkflow(workflow, sourceLabel = 'workflow') {
         const payload = await requestJson(API.importWorkflow, {
             method: 'POST',
             body: JSON.stringify({ workflow }),
@@ -204,7 +210,24 @@
         renderResults([]);
         renderCanvas();
         renderPropertyPanel();
-        setLog(`已导入 ${payload.nodeCount || State.nodes.length} 个节点`);
+        setLog(`已载入 ${sourceLabel}：${payload.nodeCount || State.nodes.length} 个节点`);
+        return payload;
+    }
+
+    async function importWorkflowFile(file) {
+        const text = await file.text();
+        const workflow = JSON.parse(text);
+        await normalizeWorkflow(workflow, file.name || 'workflow');
+    }
+
+    async function loadTemplateWorkflow(name) {
+        try {
+            setLog('正在加载内置 workflow');
+            const payload = await requestJson(API.starterWorkflow(name));
+            await normalizeWorkflow(payload.workflow, payload.name || name);
+        } catch (error) {
+            setLog(`模板加载失败: ${error.message}`);
+        }
     }
 
     function renderCanvas() {
@@ -270,6 +293,11 @@
         return State.nodes.find((node) => node.id === State.selectedNodeId) || null;
     }
 
+    function isLoadImageNode(node) {
+        const inputs = node && node.inputs && typeof node.inputs === 'object' ? node.inputs : {};
+        return !!node && (node.classType === 'LoadImage' || Object.prototype.hasOwnProperty.call(inputs, 'image'));
+    }
+
     function inputControlMarkup(definition, value) {
         const escapedName = escapeHtml(definition.name);
         const escapedLabel = escapeHtml(definition.label);
@@ -308,10 +336,26 @@
             .map((definition) => inputControlMarkup(definition, inputs[definition.name]));
 
         if (!fields.length) {
-            return '<div class="comfy-input-empty">无可编辑输入</div>';
+            return '';
         }
 
         return `<form class="comfy-input-form">${fields.join('')}</form>`;
+    }
+
+    function renderLoadImageInputs(node) {
+        if (!isLoadImageNode(node)) return '';
+        const inputs = node && node.inputs && typeof node.inputs === 'object' ? node.inputs : {};
+        const currentImage = inputs.image || '';
+        return `
+            <div class="comfy-image-upload">
+                <div class="comfy-image-upload-label">参考图</div>
+                <div class="comfy-current-image">${currentImage ? `当前：${escapeHtml(currentImage)}` : '尚未选择图片'}</div>
+                <label class="comfy-upload-button">
+                    <input type="file" accept="image/*" data-comfy-image-upload>
+                    <span>上传图片</span>
+                </label>
+            </div>
+        `;
     }
 
     function parseInputValue(name, value) {
@@ -342,6 +386,39 @@
         }
     }
 
+    function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('图片读取失败'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function uploadImageForSelectedNode(file) {
+        if (!file) return;
+        const node = selectedNode();
+        if (!node) return;
+
+        setLog('正在上传参考图');
+        const image = await readFileAsDataUrl(file);
+        const result = await requestJson(API.uploadImage, {
+            method: 'POST',
+            body: JSON.stringify({
+                image,
+                filename: file.name || 'input.png',
+            }),
+        });
+        const uploadedName = result.name || result.filename;
+        if (!uploadedName) {
+            throw new Error('后端未返回上传文件名');
+        }
+
+        updateSelectedNodeInput('image', uploadedName);
+        renderPropertyPanel();
+        setLog(`已上传参考图: ${uploadedName}`);
+    }
+
     function renderPropertyPanel() {
         if (!DOM.panel) return;
 
@@ -352,11 +429,17 @@
             return;
         }
 
+        const uploadEditor = renderLoadImageInputs(node);
+        const inputEditor = renderKnownGrsaiInputs(node);
+        const editorMarkup = uploadEditor || inputEditor
+            ? `${uploadEditor}${inputEditor}`
+            : '<div class="comfy-input-empty">无可编辑输入</div>';
+
         DOM.panel.className = 'comfy-property-preview';
         DOM.panel.innerHTML = `
             <div class="comfy-property-node-title">${escapeHtml(node.title || node.classType || node.id)}</div>
             <div class="comfy-property-node-meta">#${escapeHtml(node.id)} · ${escapeHtml(node.classType || 'Unknown')} · ${escapeHtml(nodeKindLabel(node.kind))}</div>
-            ${renderKnownGrsaiInputs(node)}
+            ${editorMarkup}
             <pre class="comfy-json-preview">${escapeHtml(JSON.stringify(node.inputs || {}, null, 2))}</pre>
         `;
 
@@ -370,6 +453,19 @@
                 }
             });
         });
+
+        const imageUpload = DOM.panel.querySelector('[data-comfy-image-upload]');
+        if (imageUpload) {
+            imageUpload.addEventListener('change', (event) => {
+                const file = event.target.files && event.target.files[0];
+                if (file) {
+                    uploadImageForSelectedNode(file).catch((error) => {
+                        setLog(`上传失败: ${error.message}`);
+                    });
+                }
+                imageUpload.value = '';
+            });
+        }
     }
 
     function setRunning(isRunning) {
@@ -437,7 +533,11 @@
         }
         setLog('开始安装 ComfyUI，本步骤会下载 ComfyUI 和 ComfyUI-GrsAI');
         try {
-            const result = await requestJson(API.runtimeInstall, { method: 'POST', body: '{}' });
+            const result = await requestJson(API.runtimeInstall, {
+                method: 'POST',
+                headers: RUNTIME_ACTION_HEADERS,
+                body: '{}',
+            });
             setLog(`安装状态: ${result.state || '完成'}`);
             await refreshStatus();
         } catch (error) {
@@ -459,7 +559,11 @@
         }
         setLog('正在启动 ComfyUI');
         try {
-            await requestJson(API.runtimeStart, { method: 'POST', body: '{}' });
+            await requestJson(API.runtimeStart, {
+                method: 'POST',
+                headers: RUNTIME_ACTION_HEADERS,
+                body: '{}',
+            });
             setLog('启动请求已发送，正在检查连接状态');
             window.setTimeout(refreshStatus, 2500);
         } catch (error) {
@@ -579,6 +683,11 @@
                 runWorkflow();
             });
         }
+        if (DOM.root) {
+            DOM.root.querySelectorAll('[data-template]').forEach((button) => {
+                button.addEventListener('click', () => loadTemplateWorkflow(button.getAttribute('data-template')));
+            });
+        }
     }
 
     function init() {
@@ -594,6 +703,8 @@
         refreshStatus,
         installRuntime,
         startRuntime,
+        loadTemplateWorkflow,
+        uploadImageForSelectedNode,
         runWorkflow,
         pollHistory,
         _state: State,

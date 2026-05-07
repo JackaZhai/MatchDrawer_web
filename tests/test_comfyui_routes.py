@@ -1,4 +1,5 @@
 import importlib
+import json
 import os
 import tempfile
 import unittest
@@ -32,9 +33,17 @@ class ComfyUIRoutesTest(unittest.TestCase):
     def setUp(self):
         self.previous_env = {
             key: os.environ.get(key)
-            for key in ("DATA_DIR", "DB_PATH", "APP_SECRET_KEY")
+            for key in (
+                "DATA_DIR",
+                "DB_PATH",
+                "APP_SECRET_KEY",
+                "COMFYUI_RUNTIME_ACTIONS_ENABLED",
+            )
         }
         self.tmpdir, self.client = build_test_client()
+
+    def runtime_headers(self):
+        return {"X-ComfyUI-Runtime-Action": "confirm-local-runtime"}
 
     def tearDown(self):
         for key, value in self.previous_env.items():
@@ -60,6 +69,39 @@ class ComfyUIRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(payload["connection"]["connected"])
         self.assertEqual(payload["runtime"]["state"], "installed")
+        self.assertNotIn("baseUrl", payload["connection"])
+        self.assertNotIn("baseUrl", payload["runtime"])
+        self.assertNotIn("runtimeDir", payload["runtime"])
+
+    @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
+    @patch("src.routes.comfyui_routes.get_comfyui_service")
+    def test_status_sanitizes_disconnected_details(self, service_factory, runtime_factory):
+        service = MagicMock()
+        service.status.return_value = {
+            "connected": False,
+            "baseUrl": "http://127.0.0.1:8188",
+            "error": "connection refused at /private/path",
+            "queue": {"running": 0, "pending": 0},
+        }
+        service_factory.return_value = service
+        runtime = MagicMock()
+        runtime.status.return_value = {
+            "state": "missing",
+            "installed": False,
+            "grsaiInstalled": False,
+            "runtimeDir": "/private/data/comfyui/runtime",
+            "baseUrl": "http://127.0.0.1:8188",
+        }
+        runtime_factory.return_value = runtime
+
+        response = self.client.get("/api/comfyui/status")
+        payload = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(payload["connection"]["connected"])
+        self.assertEqual(payload["connection"]["error"], "ComfyUI backend is not reachable")
+        self.assertNotIn("127.0.0.1", json.dumps(payload))
+        self.assertNotIn("/private", json.dumps(payload))
 
     @patch("src.routes.comfyui_routes.get_comfyui_service")
     def test_object_info_returns_service_payload(self, service_factory):
@@ -82,6 +124,19 @@ class ComfyUIRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["nodeCount"], 1)
         normalize_mock.assert_called_once_with(workflow)
+
+    def test_starter_workflow_route_returns_bundled_workflow(self):
+        response = self.client.get("/api/comfyui/workflows/starter/text-image")
+        payload = response.get_json()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["name"], "text-image")
+        self.assertEqual(payload["workflow"]["1"]["class_type"], "GrsAINanoBananaTextImage")
+
+    def test_starter_workflow_route_rejects_unknown_name(self):
+        response = self.client.get("/api/comfyui/workflows/starter/unknown")
+
+        self.assertEqual(response.status_code, 404)
 
     @patch("src.routes.comfyui_routes.get_comfyui_service")
     def test_upload_image_sends_data_url_and_filename(self, service_factory):
@@ -190,24 +245,64 @@ class ComfyUIRoutesTest(unittest.TestCase):
 
     @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
     def test_runtime_install_runs_service(self, runtime_factory):
+        os.environ["COMFYUI_RUNTIME_ACTIONS_ENABLED"] = "1"
         runtime = MagicMock()
-        runtime.run_install.return_value = {"state": "installed"}
+        runtime.run_install.return_value = {
+            "state": "installed",
+            "installed": True,
+            "grsaiInstalled": True,
+            "runtimeDir": "/private/data",
+            "baseUrl": "http://127.0.0.1:8188",
+        }
+        runtime_factory.return_value = runtime
+
+        response = self.client.post(
+            "/api/comfyui/runtime/install",
+            headers=self.runtime_headers(),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["state"], "installed")
+        self.assertNotIn("runtimeDir", response.get_json())
+        self.assertNotIn("baseUrl", response.get_json())
+        runtime.run_install.assert_called_once_with()
+
+    @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
+    def test_runtime_install_requires_feature_flag(self, runtime_factory):
+        runtime = MagicMock()
+        runtime_factory.return_value = runtime
+
+        response = self.client.post(
+            "/api/comfyui/runtime/install",
+            headers=self.runtime_headers(),
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("disabled", response.get_json()["error"])
+        runtime.run_install.assert_not_called()
+
+    @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
+    def test_runtime_install_requires_confirmation_header(self, runtime_factory):
+        os.environ["COMFYUI_RUNTIME_ACTIONS_ENABLED"] = "1"
+        runtime = MagicMock()
         runtime_factory.return_value = runtime
 
         response = self.client.post("/api/comfyui/runtime/install")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json()["state"], "installed")
-        runtime.run_install.assert_called_once_with()
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("confirmation", response.get_json()["error"])
+        runtime.run_install.assert_not_called()
 
     @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
     def test_runtime_install_rejects_non_local_request(self, runtime_factory):
+        os.environ["COMFYUI_RUNTIME_ACTIONS_ENABLED"] = "1"
         runtime = MagicMock()
         runtime_factory.return_value = runtime
 
         response = self.client.post(
             "/api/comfyui/runtime/install",
             environ_base={"REMOTE_ADDR": "203.0.113.10"},
+            headers=self.runtime_headers(),
         )
 
         self.assertEqual(response.status_code, 403)
@@ -216,24 +311,37 @@ class ComfyUIRoutesTest(unittest.TestCase):
 
     @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
     def test_runtime_start_runs_service(self, runtime_factory):
+        os.environ["COMFYUI_RUNTIME_ACTIONS_ENABLED"] = "1"
         runtime = MagicMock()
-        runtime.start.return_value = {"started": True, "baseUrl": "http://127.0.0.1:8188"}
+        runtime.start.return_value = {
+            "started": True,
+            "alreadyRunning": False,
+            "baseUrl": "http://127.0.0.1:8188",
+        }
         runtime_factory.return_value = runtime
 
-        response = self.client.post("/api/comfyui/runtime/start")
+        response = self.client.post(
+            "/api/comfyui/runtime/start",
+            headers=self.runtime_headers(),
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.get_json()["started"])
+        payload = response.get_json()
+        self.assertTrue(payload["started"])
+        self.assertFalse(payload["alreadyRunning"])
+        self.assertNotIn("baseUrl", payload)
         runtime.start.assert_called_once_with()
 
     @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
     def test_runtime_start_rejects_non_local_request(self, runtime_factory):
+        os.environ["COMFYUI_RUNTIME_ACTIONS_ENABLED"] = "1"
         runtime = MagicMock()
         runtime_factory.return_value = runtime
 
         response = self.client.post(
             "/api/comfyui/runtime/start",
             environ_base={"REMOTE_ADDR": "198.51.100.8"},
+            headers=self.runtime_headers(),
         )
 
         self.assertEqual(response.status_code, 403)
