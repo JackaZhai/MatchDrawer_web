@@ -58,7 +58,7 @@ class ComfyUIRuntimeServiceTest(unittest.TestCase):
         svc = ComfyUIRuntimeService(host="127.0.0.1", port=8199)
         command = svc.start_command()
 
-        self.assertIn("main.py", command)
+        self.assertIn(str(svc.runtime_dir / "main.py"), command)
         self.assertIn("--listen", command)
         self.assertIn("127.0.0.1", command)
         self.assertIn("--port", command)

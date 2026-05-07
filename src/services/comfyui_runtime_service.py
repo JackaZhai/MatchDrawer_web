@@ -77,7 +77,7 @@ class ComfyUIRuntimeService:
         python = str(self.python_bin) if self.python_bin.exists() else "python3"
         return [
             python,
-            "main.py",
+            str(self.runtime_dir / "main.py"),
             "--listen",
             self.host,
             "--port",
