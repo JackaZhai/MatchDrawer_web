@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from ipaddress import ip_address
 from typing import Any
 
 from flask import Blueprint, jsonify, request, send_file
@@ -10,10 +11,21 @@ from flask import Blueprint, jsonify, request, send_file
 from ..services.comfyui_runtime_service import get_comfyui_runtime_service
 from ..services.comfyui_service import get_comfyui_service
 from ..services.comfyui_workflow_service import normalize_workflow
+from ..utils.errors import ApiError
 from .decorators import api_login_required, handle_api_errors
 
 
 comfyui_bp = Blueprint("comfyui", __name__, url_prefix="/api/comfyui")
+
+
+def _require_loopback_request() -> None:
+    remote_addr = request.remote_addr or ""
+    try:
+        is_loopback = ip_address(remote_addr).is_loopback
+    except ValueError:
+        is_loopback = False
+    if not is_loopback:
+        raise ApiError("ComfyUI runtime actions require a local request", status_code=403)
 
 
 @comfyui_bp.get("/status")
@@ -90,6 +102,7 @@ def view() -> Any:
 @api_login_required
 @handle_api_errors
 def runtime_install() -> Any:
+    _require_loopback_request()
     return jsonify(get_comfyui_runtime_service().run_install())
 
 
@@ -97,4 +110,5 @@ def runtime_install() -> Any:
 @api_login_required
 @handle_api_errors
 def runtime_start() -> Any:
+    _require_loopback_request()
     return jsonify(get_comfyui_runtime_service().start())

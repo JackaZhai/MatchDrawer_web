@@ -173,6 +173,21 @@ class ComfyUIRoutesTest(unittest.TestCase):
         self.assertEqual(response.get_data(), b"image-bytes")
         service.view_image.assert_called_once_with("out.png", "foo", "output")
 
+    @patch("src.routes.decorators.get_auth_service")
+    @patch("src.routes.comfyui_routes.get_comfyui_service")
+    def test_view_route_requires_api_auth(self, service_factory, auth_factory):
+        auth = MagicMock()
+        auth.is_authenticated.return_value = False
+        auth_factory.return_value = auth
+        service = MagicMock()
+        service_factory.return_value = service
+
+        response = self.client.get("/api/comfyui/view?filename=out.png&type=output")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.get_json()["error"], "请先登录")
+        service.view_image.assert_not_called()
+
     @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
     def test_runtime_install_runs_service(self, runtime_factory):
         runtime = MagicMock()
@@ -186,6 +201,20 @@ class ComfyUIRoutesTest(unittest.TestCase):
         runtime.run_install.assert_called_once_with()
 
     @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
+    def test_runtime_install_rejects_non_local_request(self, runtime_factory):
+        runtime = MagicMock()
+        runtime_factory.return_value = runtime
+
+        response = self.client.post(
+            "/api/comfyui/runtime/install",
+            environ_base={"REMOTE_ADDR": "203.0.113.10"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("local", response.get_json()["error"].lower())
+        runtime.run_install.assert_not_called()
+
+    @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
     def test_runtime_start_runs_service(self, runtime_factory):
         runtime = MagicMock()
         runtime.start.return_value = {"started": True, "baseUrl": "http://127.0.0.1:8188"}
@@ -196,6 +225,20 @@ class ComfyUIRoutesTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()["started"])
         runtime.start.assert_called_once_with()
+
+    @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
+    def test_runtime_start_rejects_non_local_request(self, runtime_factory):
+        runtime = MagicMock()
+        runtime_factory.return_value = runtime
+
+        response = self.client.post(
+            "/api/comfyui/runtime/start",
+            environ_base={"REMOTE_ADDR": "198.51.100.8"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("local", response.get_json()["error"].lower())
+        runtime.start.assert_not_called()
 
 
 if __name__ == "__main__":
