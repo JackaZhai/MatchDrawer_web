@@ -61,6 +61,15 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertNotIn("GrsAI", workbench_shell)
         self.assertNotIn("grsai-", workbench_shell)
 
+    def test_workbench_js_contains_import_render_and_selection_paths(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+
+        self.assertIn("async function importWorkflowFile", workbench_js)
+        self.assertIn("function renderCanvas", workbench_js)
+        self.assertIn("function renderLinks", workbench_js)
+        self.assertIn("function selectNode", workbench_js)
+        self.assertIn("comfy-node-card", workbench_js)
+
 
 if __name__ == "__main__":
     unittest.main()
