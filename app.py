@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from src.config import get_config
 from src.routes.api_routes import api_bp, main_bp
 from src.routes.auth_routes import auth_bp
+from src.routes.comfyui_routes import comfyui_bp
 
 
 def _force_utf8_stdio() -> None:
@@ -55,6 +56,7 @@ def create_app() -> Flask:
     # 注册蓝图
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(comfyui_bp)
     app.register_blueprint(main_bp)
 
     @app.after_request
