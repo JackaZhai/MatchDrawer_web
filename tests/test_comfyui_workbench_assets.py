@@ -91,6 +91,62 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("setCanvasDimensions", workbench_js)
         self.assertIn("overflow: auto", css)
 
+    def test_workbench_renders_editable_known_workflow_inputs(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+
+        self.assertIn("function renderKnownGrsaiInputs", workbench_js)
+        self.assertIn("function updateSelectedNodeInput", workbench_js)
+        for input_name in (
+            "prompt",
+            "negative_prompt",
+            "model",
+            "aspectRatio",
+            "imageSize",
+            "seed",
+            "steps",
+            "cfg",
+            "batch_size",
+        ):
+            self.assertIn(f"'{input_name}'", workbench_js)
+        self.assertIn("Array.isArray(value)", workbench_js)
+        self.assertIn("State.workflow[node.id].inputs[name] = parsedValue", workbench_js)
+        self.assertIn("node.inputs[name] = parsedValue", workbench_js)
+        self.assertIn("data-comfy-input-name", workbench_js)
+
+    def test_workbench_runs_prompt_and_polls_backend_history(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+
+        self.assertIn("async function runWorkflow", workbench_js)
+        self.assertIn("function pollHistory", workbench_js)
+        self.assertIn("renderResults", workbench_js)
+        self.assertIn("workflow: State.workflow", workbench_js)
+        self.assertIn("clientId: 'matchdrawer-web'", workbench_js)
+        self.assertIn("API.prompt", workbench_js)
+        self.assertIn("API.history(promptId)", workbench_js)
+        self.assertIn("payload.prompt_id || payload.promptId", workbench_js)
+        self.assertIn("DOM.runBtn.disabled = true", workbench_js)
+        self.assertIn("DOM.runBtn.disabled = false", workbench_js)
+        self.assertIn("setTimeout", workbench_js)
+
+    def test_workbench_result_thumbnails_use_backend_view_route(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+
+        self.assertIn("function renderResults", workbench_js)
+        self.assertIn("API.view(image)", workbench_js)
+        self.assertIn("comfy-result-grid", workbench_js)
+        self.assertIn("comfy-result-thumb", workbench_js)
+        self.assertNotIn("image.url", workbench_js)
+        self.assertNotIn("ComfyUI URL", workbench_js)
+
+    def test_css_styles_property_fields_and_result_thumbnails(self):
+        css = Path("static/css/comfyui-workbench.css").read_text(encoding="utf-8")
+
+        self.assertIn(".comfy-input-form", css)
+        self.assertIn(".comfy-input-field", css)
+        self.assertIn(".comfy-input-control", css)
+        self.assertIn(".comfy-result-grid", css)
+        self.assertIn(".comfy-result-thumb", css)
+
 
 if __name__ == "__main__":
     unittest.main()

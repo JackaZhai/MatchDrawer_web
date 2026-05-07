@@ -10,7 +10,20 @@
         selectedNodeId: null,
         promptId: null,
         pollTimer: null,
+        running: false,
     };
+
+    const KNOWN_GRSAI_INPUTS = [
+        { name: 'prompt', label: 'Prompt', type: 'textarea' },
+        { name: 'negative_prompt', label: 'Negative prompt', type: 'textarea' },
+        { name: 'model', label: 'Model', type: 'text' },
+        { name: 'aspectRatio', label: 'Aspect ratio', type: 'text' },
+        { name: 'imageSize', label: 'Image size', type: 'text' },
+        { name: 'seed', label: 'Seed', type: 'number' },
+        { name: 'steps', label: 'Steps', type: 'number' },
+        { name: 'cfg', label: 'CFG', type: 'number' },
+        { name: 'batch_size', label: 'Batch size', type: 'number' },
+    ];
 
     const NODE_CARD = {
         width: 176,
@@ -185,6 +198,8 @@
         State.nodes = Array.isArray(payload.nodes) ? payload.nodes : [];
         State.links = Array.isArray(payload.links) ? payload.links : [];
         State.selectedNodeId = null;
+        State.promptId = null;
+        renderResults([]);
         renderCanvas();
         renderPropertyPanel();
         setLog(`已导入 ${payload.nodeCount || State.nodes.length} 个节点`);
@@ -253,6 +268,78 @@
         return State.nodes.find((node) => node.id === State.selectedNodeId) || null;
     }
 
+    function inputControlMarkup(definition, value) {
+        const escapedName = escapeHtml(definition.name);
+        const escapedLabel = escapeHtml(definition.label);
+        const escapedValue = escapeHtml(value);
+
+        if (definition.type === 'textarea') {
+            return `
+                <label class="comfy-input-field">
+                    <span>${escapedLabel}</span>
+                    <textarea class="comfy-input-control"
+                              rows="4"
+                              data-comfy-input-name="${escapedName}">${escapedValue}</textarea>
+                </label>
+            `;
+        }
+
+        return `
+            <label class="comfy-input-field">
+                <span>${escapedLabel}</span>
+                <input class="comfy-input-control"
+                       type="${definition.type === 'number' ? 'number' : 'text'}"
+                       data-comfy-input-name="${escapedName}"
+                       value="${escapedValue}">
+            </label>
+        `;
+    }
+
+    function renderKnownGrsaiInputs(node) {
+        const inputs = node && node.inputs && typeof node.inputs === 'object' ? node.inputs : {};
+        const fields = KNOWN_GRSAI_INPUTS
+            .filter((definition) => Object.prototype.hasOwnProperty.call(inputs, definition.name))
+            .filter((definition) => {
+                const value = inputs[definition.name];
+                return !Array.isArray(value);
+            })
+            .map((definition) => inputControlMarkup(definition, inputs[definition.name]));
+
+        if (!fields.length) {
+            return '<div class="comfy-input-empty">无可编辑输入</div>';
+        }
+
+        return `<form class="comfy-input-form">${fields.join('')}</form>`;
+    }
+
+    function parseInputValue(name, value) {
+        if (['seed', 'steps', 'batch_size'].includes(name)) {
+            const parsed = Number.parseInt(value, 10);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+        if (name === 'cfg') {
+            const parsed = Number.parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        }
+        return value;
+    }
+
+    function updateSelectedNodeInput(name, value) {
+        const node = selectedNode();
+        if (!node || !name) return;
+
+        const parsedValue = parseInputValue(name, value);
+        node.inputs = node.inputs && typeof node.inputs === 'object' ? node.inputs : {};
+        node.inputs[name] = parsedValue;
+
+        if (State.workflow && State.workflow[node.id]) {
+            State.workflow[node.id].inputs = State.workflow[node.id].inputs && typeof State.workflow[node.id].inputs === 'object'
+                ? State.workflow[node.id].inputs
+                : {};
+            State.workflow[node.id].inputs[name] = parsedValue;
+        }
+    }
+
     function renderPropertyPanel() {
         if (!DOM.panel) return;
 
@@ -267,8 +354,144 @@
         DOM.panel.innerHTML = `
             <div class="comfy-property-node-title">${escapeHtml(node.title || node.classType || node.id)}</div>
             <div class="comfy-property-node-meta">#${escapeHtml(node.id)} · ${escapeHtml(node.classType || 'Unknown')} · ${escapeHtml(nodeKindLabel(node.kind))}</div>
+            ${renderKnownGrsaiInputs(node)}
             <pre class="comfy-json-preview">${escapeHtml(JSON.stringify(node.inputs || {}, null, 2))}</pre>
         `;
+
+        DOM.panel.querySelectorAll('[data-comfy-input-name]').forEach((element) => {
+            element.addEventListener('input', () => {
+                updateSelectedNodeInput(element.getAttribute('data-comfy-input-name'), element.value);
+                const preview = DOM.panel.querySelector('.comfy-json-preview');
+                const currentNode = selectedNode();
+                if (preview && currentNode) {
+                    preview.textContent = JSON.stringify(currentNode.inputs || {}, null, 2);
+                }
+            });
+        });
+    }
+
+    function setRunning(isRunning) {
+        State.running = isRunning;
+        if (DOM.runBtn && isRunning) {
+            DOM.runBtn.disabled = true;
+        } else if (DOM.runBtn) {
+            DOM.runBtn.disabled = false;
+        }
+    }
+
+    function extractHistoryRecord(payload, promptId) {
+        if (!payload || typeof payload !== 'object') return null;
+        if (payload[promptId]) return payload[promptId];
+        if (payload.history && payload.history[promptId]) return payload.history[promptId];
+        if (payload.outputs || payload.status) return payload;
+        return null;
+    }
+
+    function historySucceeded(record) {
+        if (!record) return false;
+        if (record.outputs && Object.keys(record.outputs).length) return true;
+        if (record.status && record.status.completed === true) return true;
+        if (record.status && record.status.status_str === 'success') return true;
+        return false;
+    }
+
+    function collectResultImages(record) {
+        const outputs = record && record.outputs && typeof record.outputs === 'object' ? record.outputs : {};
+        return Object.values(outputs).flatMap((output) => {
+            if (!output || !Array.isArray(output.images)) return [];
+            return output.images.filter((image) => image && image.filename);
+        });
+    }
+
+    function renderResults(images) {
+        if (!DOM.results) return;
+        const safeImages = Array.isArray(images) ? images.filter((image) => image && image.filename) : [];
+        if (!safeImages.length) {
+            DOM.results.innerHTML = '<div class="comfy-results-empty">暂无结果</div>';
+            return;
+        }
+
+        DOM.results.innerHTML = `
+            <div class="comfy-result-grid">
+                ${safeImages.map((image) => {
+                    const src = API.view(image);
+                    const title = image.filename || 'result';
+                    return `
+                        <a class="comfy-result-thumb" href="${escapeHtml(src)}" target="_blank" rel="noopener">
+                            <img src="${escapeHtml(src)}" alt="${escapeHtml(title)}" loading="lazy">
+                        </a>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+
+    function pollHistory(promptId) {
+        if (!promptId) {
+            setLog('缺少任务 ID，无法查询历史');
+            setRunning(false);
+            return;
+        }
+
+        if (State.pollTimer) {
+            window.clearTimeout(State.pollTimer);
+            State.pollTimer = null;
+        }
+
+        requestJson(API.history(promptId))
+            .then((payload) => {
+                const record = extractHistoryRecord(payload, promptId);
+                if (historySucceeded(record)) {
+                    const images = collectResultImages(record);
+                    renderResults(images);
+                    setLog(images.length ? `生成完成，返回 ${images.length} 张图片` : '生成完成，未返回图片');
+                    setRunning(false);
+                    return;
+                }
+
+                setLog(`生成中: ${promptId}`);
+                State.pollTimer = window.setTimeout(() => pollHistory(promptId), 1800);
+            })
+            .catch((error) => {
+                setLog(`查询失败: ${error.message}`);
+                setRunning(false);
+            });
+    }
+
+    async function runWorkflow() {
+        if (!State.workflow) {
+            setLog('请先导入 workflow');
+            return;
+        }
+
+        if (State.pollTimer) {
+            window.clearTimeout(State.pollTimer);
+            State.pollTimer = null;
+        }
+
+        setRunning(true);
+        renderResults([]);
+        setLog('正在提交 workflow');
+
+        try {
+            const payload = await requestJson(API.prompt, {
+                method: 'POST',
+                body: JSON.stringify({
+                    workflow: State.workflow,
+                    clientId: 'matchdrawer-web',
+                }),
+            });
+            const promptId = payload.prompt_id || payload.promptId;
+            if (!promptId) {
+                throw new Error('后端未返回 prompt_id');
+            }
+            State.promptId = promptId;
+            setLog(`已提交任务: ${promptId}`);
+            pollHistory(promptId);
+        } catch (error) {
+            setLog(`运行失败: ${error.message}`);
+            setRunning(false);
+        }
     }
 
     function bindEvents() {
@@ -291,7 +514,9 @@
             DOM.startBtn.addEventListener('click', () => setLog('启动 ComfyUI 功能待接入'));
         }
         if (DOM.runBtn) {
-            DOM.runBtn.addEventListener('click', () => setLog('运行 workflow 功能待接入'));
+            DOM.runBtn.addEventListener('click', () => {
+                runWorkflow();
+            });
         }
     }
 
@@ -306,6 +531,8 @@
     window.ComfyUIWorkbench = {
         init,
         refreshStatus,
+        runWorkflow,
+        pollHistory,
         _state: State,
         _api: API,
     };

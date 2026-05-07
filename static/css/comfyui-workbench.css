@@ -254,6 +254,48 @@
   overflow-wrap: anywhere;
 }
 
+.comfy-input-form {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.comfy-input-field {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.comfy-input-control {
+  width: 100%;
+  min-width: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  line-height: 1.35;
+}
+
+.comfy-input-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(45, 127, 249, 0.14);
+  outline: none;
+}
+
+textarea.comfy-input-control {
+  resize: vertical;
+}
+
+.comfy-input-empty,
+.comfy-results-empty {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
 .comfy-json-preview {
   max-height: 28rem;
   margin-top: var(--space-3);
@@ -268,6 +310,28 @@
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.comfy-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.comfy-result-thumb {
+  display: block;
+  aspect-ratio: 1;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface-subtle);
+  overflow: hidden;
+}
+
+.comfy-result-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 @media (max-width: 1180px) {
