@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -81,6 +82,8 @@ class ComfyUIRuntimeServiceTest(unittest.TestCase):
 
         svc = ComfyUIRuntimeService()
         svc.runtime_dir.mkdir(parents=True)
+        (svc.runtime_dir / "main.py").write_text("print('comfy')", encoding="utf-8")
+        (svc.runtime_dir / "requirements.txt").write_text("", encoding="utf-8")
         svc.grsai_dir.mkdir(parents=True)
         svc.python_bin.parent.mkdir(parents=True, exist_ok=True)
         svc.python_bin.write_text("# python", encoding="utf-8")
@@ -92,6 +95,21 @@ class ComfyUIRuntimeServiceTest(unittest.TestCase):
         self.assertNotIn(["git", "clone", COMFYUI_REPO, str(svc.runtime_dir)], calls)
         self.assertNotIn(["git", "clone", GRSAI_REPO, str(svc.grsai_dir)], calls)
         self.assertIn(["mkdir", "-p", str(svc.runtime_dir / "custom_nodes")], calls)
+
+    def test_run_install_repairs_empty_runtime_dir_before_clone(self):
+        from src.services.comfyui_runtime_service import COMFYUI_REPO
+        from src.services.comfyui_runtime_service import ComfyUIRuntimeService
+
+        svc = ComfyUIRuntimeService()
+        svc.runtime_dir.mkdir(parents=True)
+
+        with patch("src.services.comfyui_runtime_service.subprocess.run") as run:
+            svc.run_install()
+
+        calls = [call.args[0] for call in run.call_args_list]
+        self.assertIn(["git", "clone", COMFYUI_REPO, str(svc.runtime_dir)], calls)
+        backups = list(svc.runtime_dir.parent.glob("runtime.incomplete-*"))
+        self.assertEqual(len(backups), 1)
 
     def test_start_returns_existing_when_backend_reachable(self):
         from src.services.comfyui_runtime_service import ComfyUIRuntimeService
@@ -109,6 +127,28 @@ class ComfyUIRuntimeServiceTest(unittest.TestCase):
         self.assertTrue(result["alreadyRunning"])
         self.assertEqual(result["baseUrl"], "http://127.0.0.1:8188")
 
+    def test_start_logs_to_file_without_long_lived_pipes(self):
+        from src.services.comfyui_runtime_service import ComfyUIRuntimeService
+
+        svc = ComfyUIRuntimeService()
+        svc.runtime_dir.mkdir(parents=True)
+        (svc.runtime_dir / "main.py").write_text("print('comfy')", encoding="utf-8")
+        svc.python_bin.parent.mkdir(parents=True)
+        svc.python_bin.write_text("# python", encoding="utf-8")
+
+        proc = Mock()
+        proc.poll.return_value = None
+
+        with patch.object(svc, "_is_reachable", side_effect=[False, True]):
+            with patch("src.services.comfyui_runtime_service.subprocess.Popen", return_value=proc) as popen:
+                result = svc.start(startup_timeout=0.01, poll_interval=0)
+
+        self.assertTrue(result["started"])
+        kwargs = popen.call_args.kwargs
+        self.assertNotEqual(kwargs["stdout"], subprocess.PIPE)
+        self.assertEqual(kwargs["stderr"], subprocess.STDOUT)
+        self.assertEqual(Path(kwargs["stdout"].name), svc.log_file)
+
     def test_start_raises_when_process_exits_before_ready(self):
         from src.services.comfyui_runtime_service import ComfyUIRuntimeService
         from src.utils.errors import ServiceError
@@ -121,7 +161,8 @@ class ComfyUIRuntimeServiceTest(unittest.TestCase):
 
         proc = Mock()
         proc.poll.return_value = 1
-        proc.communicate.return_value = (b"", b"boom")
+        svc.log_file.parent.mkdir(parents=True, exist_ok=True)
+        svc.log_file.write_text("startup\nboom\n", encoding="utf-8")
 
         with patch.object(svc, "_is_reachable", return_value=False):
             with patch("src.services.comfyui_runtime_service.subprocess.Popen", return_value=proc):
@@ -129,7 +170,31 @@ class ComfyUIRuntimeServiceTest(unittest.TestCase):
                     svc.start(startup_timeout=0.01, poll_interval=0)
 
         self.assertIn("exited early", str(ctx.exception))
-        self.assertEqual(ctx.exception.details, "boom")
+        self.assertIn("boom", ctx.exception.details)
+        proc.communicate.assert_not_called()
+
+    def test_start_terminates_process_on_readiness_timeout(self):
+        from src.services.comfyui_runtime_service import ComfyUIRuntimeService
+        from src.utils.errors import ServiceError
+
+        svc = ComfyUIRuntimeService()
+        svc.runtime_dir.mkdir(parents=True)
+        (svc.runtime_dir / "main.py").write_text("print('comfy')", encoding="utf-8")
+        svc.python_bin.parent.mkdir(parents=True)
+        svc.python_bin.write_text("# python", encoding="utf-8")
+
+        proc = Mock()
+        proc.poll.return_value = None
+
+        with patch.object(svc, "_is_reachable", return_value=False):
+            with patch("src.services.comfyui_runtime_service.subprocess.Popen", return_value=proc):
+                with self.assertRaises(ServiceError) as ctx:
+                    svc.start(startup_timeout=0.01, poll_interval=0)
+
+        self.assertIn("did not become reachable", str(ctx.exception))
+        proc.terminate.assert_called_once()
+        proc.wait.assert_called_once()
+        proc.kill.assert_not_called()
 
 
 if __name__ == "__main__":
