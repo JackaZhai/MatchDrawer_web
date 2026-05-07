@@ -4025,11 +4025,10 @@ window.App = {
     showNotification,
     setTheme,
     // API密钥管理函数
-    setCurrentKey,
-    testSpecificKey,
-    deleteApiKey,
+    setCurrentKey: setActiveKey,
+    testSpecificKey: testApiKey,
+    deleteApiKey: deleteApiKeyById,
     // 其他实用函数
     addActivity,
     updateDashboardStats
 };
-
