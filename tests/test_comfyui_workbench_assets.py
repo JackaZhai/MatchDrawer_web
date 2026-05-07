@@ -1,3 +1,6 @@
+import json
+import subprocess
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -135,6 +138,121 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("renderResults(payload.results || [])", workbench_js)
         self.assertIn("payload.status || 'running'", workbench_js)
         self.assertIn("normalized backend history", workbench_js)
+
+    def test_poll_history_renders_normalized_backend_results_in_node(self):
+        script = textwrap.dedent(
+            r"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const source = fs.readFileSync('static/js/comfyui-workbench.js', 'utf8');
+
+            function createElement(id) {
+                return {
+                    id,
+                    textContent: '',
+                    innerHTML: '',
+                    disabled: id === 'comfyRunBtn',
+                    value: '',
+                    files: [],
+                    style: {},
+                    parentElement: { clientWidth: 960, clientHeight: 640 },
+                    classList: {
+                        toggle() {},
+                        remove() {},
+                    },
+                    addEventListener() {},
+                    setAttribute() {},
+                    querySelectorAll() { return []; },
+                    querySelector() { return null; },
+                };
+            }
+
+            const elements = {};
+            [
+                'comfyWorkbenchRoot',
+                'comfyConnectionStatus',
+                'comfyImportBtn',
+                'comfyImportInput',
+                'comfyInstallBtn',
+                'comfyStartBtn',
+                'comfyRunBtn',
+                'comfyCanvas',
+                'comfyLinkLayer',
+                'comfyEmptyState',
+                'comfyPropertyPanel',
+                'comfyRunLog',
+                'comfyResults',
+            ].forEach((id) => {
+                elements[id] = createElement(id);
+            });
+
+            const sandbox = {
+                console,
+                setTimeout,
+                clearTimeout,
+                document: {
+                    getElementById(id) {
+                        return elements[id] || null;
+                    },
+                },
+                fetch(url) {
+                    if (url === '/api/comfyui/status') {
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({ connection: { connected: true } }),
+                        });
+                    }
+                    if (url === '/api/comfyui/history/abc') {
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({
+                                promptId: 'abc',
+                                status: 'succeeded',
+                                results: [{ filename: 'out.png', type: 'output' }],
+                            }),
+                        });
+                    }
+                    throw new Error(`unexpected fetch ${url}`);
+                },
+            };
+            sandbox.window = {
+                setTimeout,
+                clearTimeout,
+            };
+
+            (async () => {
+                vm.runInNewContext(source, sandbox, { filename: 'comfyui-workbench.js' });
+                sandbox.window.ComfyUIWorkbench.init();
+                sandbox.window.ComfyUIWorkbench.pollHistory('abc');
+                await Promise.resolve();
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                await Promise.resolve();
+
+                console.log(JSON.stringify({
+                    resultsHtml: elements.comfyResults.innerHTML,
+                    runDisabled: elements.comfyRunBtn.disabled,
+                    logText: elements.comfyRunLog.textContent,
+                }));
+            })().catch((error) => {
+                console.error(error && error.stack ? error.stack : error);
+                process.exit(1);
+            });
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script],
+            cwd=Path.cwd(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertIn("out.png", payload["resultsHtml"])
+        self.assertIn("/api/comfyui/view", payload["resultsHtml"])
+        self.assertFalse(payload["runDisabled"])
+        self.assertIn("生成完成", payload["logText"])
 
     def test_workbench_result_thumbnails_use_backend_view_route(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
