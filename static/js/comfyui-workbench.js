@@ -6,9 +6,18 @@
         workflow: null,
         nodes: [],
         links: [],
+        viewport: null,
         selectedNodeId: null,
         promptId: null,
         pollTimer: null,
+    };
+
+    const NODE_CARD = {
+        width: 176,
+        height: 76,
+        padding: 96,
+        minWidth: 720,
+        minHeight: 480,
     };
 
     const API = {
@@ -85,10 +94,83 @@
 
     function nodePosition(node, fallbackIndex = 0) {
         const position = node && node.position ? node.position : {};
+        const x = Number(position.x);
+        const y = Number(position.y);
         return {
-            x: Number(position.x) || 120 + fallbackIndex * 220,
-            y: Number(position.y) || 120 + (fallbackIndex % 3) * 110,
+            x: Number.isFinite(x) ? x : 120 + fallbackIndex * 220,
+            y: Number.isFinite(y) ? y : 120 + (fallbackIndex % 3) * 110,
         };
+    }
+
+    function nodeKindClass(kind) {
+        if (kind === 'core') return 'core';
+        if (kind === 'unknown') return 'unknown';
+        return 'custom';
+    }
+
+    function nodeKindLabel(kind) {
+        if (kind === 'core') return 'Core Node';
+        if (kind === 'unknown') return 'Unknown Node';
+        return 'Custom Node';
+    }
+
+    function layoutViewport() {
+        const shell = DOM.canvas ? DOM.canvas.parentElement : null;
+        const shellWidth = shell ? shell.clientWidth : 0;
+        const shellHeight = shell ? shell.clientHeight : 0;
+
+        if (!State.nodes.length) {
+            return {
+                width: Math.max(shellWidth, NODE_CARD.minWidth),
+                height: Math.max(shellHeight, NODE_CARD.minHeight),
+                offsetX: 0,
+                offsetY: 0,
+            };
+        }
+
+        const bounds = State.nodes.reduce((result, node, index) => {
+            const position = nodePosition(node, index);
+            return {
+                minX: Math.min(result.minX, position.x),
+                minY: Math.min(result.minY, position.y),
+                maxX: Math.max(result.maxX, position.x + NODE_CARD.width),
+                maxY: Math.max(result.maxY, position.y + NODE_CARD.height),
+            };
+        }, {
+            minX: Infinity,
+            minY: Infinity,
+            maxX: -Infinity,
+            maxY: -Infinity,
+        });
+
+        return {
+            width: Math.max(shellWidth, NODE_CARD.minWidth, bounds.maxX - bounds.minX + NODE_CARD.padding * 2),
+            height: Math.max(shellHeight, NODE_CARD.minHeight, bounds.maxY - bounds.minY + NODE_CARD.padding * 2),
+            offsetX: NODE_CARD.padding - bounds.minX,
+            offsetY: NODE_CARD.padding - bounds.minY,
+        };
+    }
+
+    function normalizeNodePosition(node, index, viewport) {
+        const position = nodePosition(node, index);
+        return {
+            x: position.x + viewport.offsetX,
+            y: position.y + viewport.offsetY,
+        };
+    }
+
+    function setCanvasDimensions(viewport) {
+        if (DOM.canvas) {
+            DOM.canvas.style.width = `${viewport.width}px`;
+            DOM.canvas.style.height = `${viewport.height}px`;
+        }
+        if (DOM.links) {
+            DOM.links.setAttribute('width', String(viewport.width));
+            DOM.links.setAttribute('height', String(viewport.height));
+            DOM.links.setAttribute('viewBox', `0 0 ${viewport.width} ${viewport.height}`);
+            DOM.links.style.width = `${viewport.width}px`;
+            DOM.links.style.height = `${viewport.height}px`;
+        }
     }
 
     async function importWorkflowFile(file) {
@@ -111,16 +193,21 @@
     function renderCanvas() {
         if (!DOM.canvas) return;
 
+        const viewport = layoutViewport();
+        State.viewport = viewport;
+        setCanvasDimensions(viewport);
+
         if (DOM.empty) {
             DOM.empty.style.display = State.nodes.length ? 'none' : 'flex';
         }
 
         DOM.canvas.innerHTML = State.nodes.map((node, index) => {
-            const position = nodePosition(node, index);
+            const position = normalizeNodePosition(node, index, viewport);
             const selected = node.id === State.selectedNodeId ? ' is-selected' : '';
+            const kindClass = nodeKindClass(node.kind);
             return `
                 <button type="button"
-                        class="comfy-node-card comfy-node-${escapeHtml(node.kind || 'unknown')}${selected}"
+                        class="comfy-node-card comfy-node-${kindClass}${selected}"
                         data-node-id="${escapeHtml(node.id)}"
                         style="left:${position.x}px;top:${position.y}px">
                     <span class="comfy-node-title">${escapeHtml(node.title || node.classType || node.id)}</span>
@@ -132,10 +219,10 @@
         DOM.canvas.querySelectorAll('[data-node-id]').forEach((element) => {
             element.addEventListener('click', () => selectNode(element.getAttribute('data-node-id')));
         });
-        renderLinks();
+        renderLinks(viewport);
     }
 
-    function renderLinks() {
+    function renderLinks(viewport = State.viewport || layoutViewport()) {
         if (!DOM.links) return;
 
         const nodeMap = new Map(State.nodes.map((node, index) => [node.id, { node, index }]));
@@ -144,8 +231,8 @@
             const target = nodeMap.get(link.toNode);
             if (!source || !target) return '';
 
-            const from = nodePosition(source.node, source.index);
-            const to = nodePosition(target.node, target.index);
+            const from = normalizeNodePosition(source.node, source.index, viewport);
+            const to = normalizeNodePosition(target.node, target.index, viewport);
             const x1 = from.x + 176;
             const y1 = from.y + 42;
             const x2 = to.x;
@@ -179,7 +266,7 @@
         DOM.panel.className = 'comfy-property-preview';
         DOM.panel.innerHTML = `
             <div class="comfy-property-node-title">${escapeHtml(node.title || node.classType || node.id)}</div>
-            <div class="comfy-property-node-meta">#${escapeHtml(node.id)} · ${escapeHtml(node.classType || 'Unknown')} · ${escapeHtml(node.kind || 'unknown')}</div>
+            <div class="comfy-property-node-meta">#${escapeHtml(node.id)} · ${escapeHtml(node.classType || 'Unknown')} · ${escapeHtml(nodeKindLabel(node.kind))}</div>
             <pre class="comfy-json-preview">${escapeHtml(JSON.stringify(node.inputs || {}, null, 2))}</pre>
         `;
     }

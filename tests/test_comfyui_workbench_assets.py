@@ -70,6 +70,27 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("function selectNode", workbench_js)
         self.assertIn("comfy-node-card", workbench_js)
 
+    def test_workbench_maps_provider_specific_node_kinds_to_generic_ui(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+        css = Path("static/css/comfyui-workbench.css").read_text(encoding="utf-8")
+
+        self.assertIn("function nodeKindClass", workbench_js)
+        self.assertIn("function nodeKindLabel", workbench_js)
+        self.assertIn("Custom Node", workbench_js)
+        self.assertNotIn(".comfy-node-grsai", css)
+        self.assertNotIn("comfy-node-${escapeHtml(node.kind", workbench_js)
+        self.assertNotIn("comfy-node-${nodeKindClass(node.kind)", workbench_js)
+        self.assertNotIn("escapeHtml(node.kind || 'unknown')", workbench_js)
+
+    def test_workbench_canvas_layout_handles_large_and_negative_workflows(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+        css = Path("static/css/comfyui-workbench.css").read_text(encoding="utf-8")
+
+        self.assertIn("function layoutViewport", workbench_js)
+        self.assertIn("function normalizeNodePosition", workbench_js)
+        self.assertIn("setCanvasDimensions", workbench_js)
+        self.assertIn("overflow: auto", css)
+
 
 if __name__ == "__main__":
     unittest.main()

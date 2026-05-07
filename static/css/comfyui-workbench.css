@@ -61,7 +61,7 @@
 
 .comfy-canvas-shell {
   position: relative;
-  overflow: hidden;
+  overflow: auto;
   background:
     radial-gradient(circle at 18px 18px, rgba(20, 184, 166, 0.16) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.18) 1px, transparent 1px),
@@ -197,7 +197,7 @@
   border-left: 3px solid color-mix(in srgb, var(--color-primary) 70%, #ffffff);
 }
 
-.comfy-node-grsai {
+.comfy-node-custom {
   border-left: 3px solid color-mix(in srgb, var(--color-success) 72%, #ffffff);
 }
 
