@@ -55,6 +55,7 @@ logs/**
 *.tmp
 *.temp
 tmp/
+.superpowers/
 
 # Test files
 test-output/
