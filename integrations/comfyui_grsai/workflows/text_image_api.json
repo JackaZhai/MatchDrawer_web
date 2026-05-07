@@ -1,0 +1,23 @@
+{
+  "1": {
+    "class_type": "GrsAINanoBananaTextImage",
+    "inputs": {
+      "prompt": "a clean scientific product-style image on a white background",
+      "model": "nano-banana-pro",
+      "aspectRatio": "1:1",
+      "imageSize": "1K"
+    },
+    "_meta": {
+      "title": "GrsAI Nano Banana Text/Image"
+    }
+  },
+  "2": {
+    "class_type": "PreviewImage",
+    "inputs": {
+      "images": ["1", 0]
+    },
+    "_meta": {
+      "title": "Preview Image"
+    }
+  }
+}

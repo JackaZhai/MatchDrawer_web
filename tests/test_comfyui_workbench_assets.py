@@ -282,6 +282,26 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("grid-template-areas", css)
         self.assertIn("grid-area: properties", css)
 
+    def test_runtime_actions_and_starter_workflow_are_present(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+        starter = Path("integrations/comfyui_grsai/workflows/text_image_api.json")
+
+        self.assertIn("async function installRuntime", workbench_js)
+        self.assertIn("async function startRuntime", workbench_js)
+        self.assertIn("requestJson(API.runtimeInstall, { method: 'POST', body: '{}' })", workbench_js)
+        self.assertIn("requestJson(API.runtimeStart, { method: 'POST', body: '{}' })", workbench_js)
+        self.assertIn("DOM.installBtn.addEventListener('click', () => installRuntime())", workbench_js)
+        self.assertIn("DOM.startBtn.addEventListener('click', () => startRuntime())", workbench_js)
+
+        self.assertTrue(starter.exists())
+        workflow = json.loads(starter.read_text(encoding="utf-8"))
+        self.assertIn("1", workflow)
+        self.assertIn("2", workflow)
+        self.assertEqual(workflow["1"]["class_type"], "GrsAINanoBananaTextImage")
+        self.assertEqual(workflow["2"]["class_type"], "PreviewImage")
+        self.assertEqual(workflow["2"]["inputs"]["images"], ["1", 0])
+        self.assertIn("GrsAI", json.dumps(workflow))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -426,6 +426,28 @@
         `;
     }
 
+    async function installRuntime() {
+        setLog('开始安装 ComfyUI，本步骤会下载 ComfyUI 和 ComfyUI-GrsAI');
+        try {
+            const result = await requestJson(API.runtimeInstall, { method: 'POST', body: '{}' });
+            setLog(`安装状态: ${result.state || '完成'}`);
+            await refreshStatus();
+        } catch (error) {
+            setLog(`安装失败: ${error.message}`);
+        }
+    }
+
+    async function startRuntime() {
+        setLog('正在启动 ComfyUI');
+        try {
+            const result = await requestJson(API.runtimeStart, { method: 'POST', body: '{}' });
+            setLog(`启动请求已发送: ${result.baseUrl || ''}`);
+            window.setTimeout(refreshStatus, 2500);
+        } catch (error) {
+            setLog(`启动失败: ${error.message}`);
+        }
+    }
+
     function pollHistory(promptId) {
         if (!promptId) {
             setLog('缺少任务 ID，无法查询历史');
@@ -523,10 +545,10 @@
             });
         }
         if (DOM.installBtn) {
-            DOM.installBtn.addEventListener('click', () => setLog('安装 ComfyUI 功能待接入'));
+            DOM.installBtn.addEventListener('click', () => installRuntime());
         }
         if (DOM.startBtn) {
-            DOM.startBtn.addEventListener('click', () => setLog('启动 ComfyUI 功能待接入'));
+            DOM.startBtn.addEventListener('click', () => startRuntime());
         }
         if (DOM.runBtn) {
             DOM.runBtn.addEventListener('click', () => {
@@ -546,6 +568,8 @@
     window.ComfyUIWorkbench = {
         init,
         refreshStatus,
+        installRuntime,
+        startRuntime,
         runWorkflow,
         pollHistory,
         _state: State,
