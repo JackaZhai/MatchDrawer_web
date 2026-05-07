@@ -11,6 +11,8 @@
         promptId: null,
         pollTimer: null,
         running: false,
+        installingRuntime: false,
+        startingRuntime: false,
     };
 
     const KNOWN_GRSAI_INPUTS = [
@@ -427,6 +429,12 @@
     }
 
     async function installRuntime() {
+        if (State.installingRuntime) return;
+
+        State.installingRuntime = true;
+        if (DOM.installBtn) {
+            DOM.installBtn.disabled = true;
+        }
         setLog('开始安装 ComfyUI，本步骤会下载 ComfyUI 和 ComfyUI-GrsAI');
         try {
             const result = await requestJson(API.runtimeInstall, { method: 'POST', body: '{}' });
@@ -434,17 +442,33 @@
             await refreshStatus();
         } catch (error) {
             setLog(`安装失败: ${error.message}`);
+        } finally {
+            State.installingRuntime = false;
+            if (DOM.installBtn) {
+                DOM.installBtn.disabled = false;
+            }
         }
     }
 
     async function startRuntime() {
+        if (State.startingRuntime) return;
+
+        State.startingRuntime = true;
+        if (DOM.startBtn) {
+            DOM.startBtn.disabled = true;
+        }
         setLog('正在启动 ComfyUI');
         try {
-            const result = await requestJson(API.runtimeStart, { method: 'POST', body: '{}' });
-            setLog(`启动请求已发送: ${result.baseUrl || ''}`);
+            await requestJson(API.runtimeStart, { method: 'POST', body: '{}' });
+            setLog('启动请求已发送，正在检查连接状态');
             window.setTimeout(refreshStatus, 2500);
         } catch (error) {
             setLog(`启动失败: ${error.message}`);
+        } finally {
+            State.startingRuntime = false;
+            if (DOM.startBtn) {
+                DOM.startBtn.disabled = false;
+            }
         }
     }
 

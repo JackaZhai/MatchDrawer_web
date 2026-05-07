@@ -288,10 +288,25 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
 
         self.assertIn("async function installRuntime", workbench_js)
         self.assertIn("async function startRuntime", workbench_js)
+        self.assertIn("installingRuntime: false", workbench_js)
+        self.assertIn("startingRuntime: false", workbench_js)
+        self.assertIn("if (State.installingRuntime) return", workbench_js)
+        self.assertIn("if (State.startingRuntime) return", workbench_js)
+        self.assertIn("State.installingRuntime = true", workbench_js)
+        self.assertIn("State.startingRuntime = true", workbench_js)
+        self.assertIn("DOM.installBtn.disabled = true", workbench_js)
+        self.assertIn("DOM.startBtn.disabled = true", workbench_js)
+        self.assertIn("finally", workbench_js)
+        self.assertIn("State.installingRuntime = false", workbench_js)
+        self.assertIn("State.startingRuntime = false", workbench_js)
+        self.assertIn("DOM.installBtn.disabled = false", workbench_js)
+        self.assertIn("DOM.startBtn.disabled = false", workbench_js)
         self.assertIn("requestJson(API.runtimeInstall, { method: 'POST', body: '{}' })", workbench_js)
         self.assertIn("requestJson(API.runtimeStart, { method: 'POST', body: '{}' })", workbench_js)
         self.assertIn("DOM.installBtn.addEventListener('click', () => installRuntime())", workbench_js)
         self.assertIn("DOM.startBtn.addEventListener('click', () => startRuntime())", workbench_js)
+        self.assertIn("启动请求已发送，正在检查连接状态", workbench_js)
+        self.assertNotIn("result.baseUrl", workbench_js)
 
         self.assertTrue(starter.exists())
         workflow = json.loads(starter.read_text(encoding="utf-8"))
@@ -301,6 +316,155 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertEqual(workflow["2"]["class_type"], "PreviewImage")
         self.assertEqual(workflow["2"]["inputs"]["images"], ["1", 0])
         self.assertIn("GrsAI", json.dumps(workflow))
+
+    def test_runtime_actions_prevent_duplicate_posts_and_hide_upstream_url(self):
+        script = textwrap.dedent(
+            r"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const source = fs.readFileSync('static/js/comfyui-workbench.js', 'utf8');
+
+            function createElement(id) {
+                return {
+                    id,
+                    textContent: '',
+                    innerHTML: '',
+                    disabled: false,
+                    value: '',
+                    files: [],
+                    style: {},
+                    parentElement: { clientWidth: 960, clientHeight: 640 },
+                    classList: {
+                        toggle() {},
+                        remove() {},
+                    },
+                    addEventListener() {},
+                    setAttribute() {},
+                    querySelectorAll() { return []; },
+                    querySelector() { return null; },
+                };
+            }
+
+            const elements = {};
+            [
+                'comfyWorkbenchRoot',
+                'comfyConnectionStatus',
+                'comfyImportBtn',
+                'comfyImportInput',
+                'comfyInstallBtn',
+                'comfyStartBtn',
+                'comfyRunBtn',
+                'comfyCanvas',
+                'comfyLinkLayer',
+                'comfyEmptyState',
+                'comfyPropertyPanel',
+                'comfyRunLog',
+                'comfyResults',
+            ].forEach((id) => {
+                elements[id] = createElement(id);
+            });
+
+            let installResolve;
+            let startResolve;
+            const calls = [];
+            const sandbox = {
+                console,
+                setTimeout(callback) {
+                    callback();
+                    return 1;
+                },
+                clearTimeout,
+                document: {
+                    getElementById(id) {
+                        return elements[id] || null;
+                    },
+                },
+                fetch(url) {
+                    calls.push(url);
+                    if (url === '/api/comfyui/status') {
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({ connection: { connected: true } }),
+                        });
+                    }
+                    if (url === '/api/comfyui/runtime/install') {
+                        return new Promise((resolve) => {
+                            installResolve = () => resolve({
+                                ok: true,
+                                json: () => Promise.resolve({ state: 'installing' }),
+                            });
+                        });
+                    }
+                    if (url === '/api/comfyui/runtime/start') {
+                        return new Promise((resolve) => {
+                            startResolve = () => resolve({
+                                ok: true,
+                                json: () => Promise.resolve({ baseUrl: 'http://127.0.0.1:8188' }),
+                            });
+                        });
+                    }
+                    throw new Error(`unexpected fetch ${url}`);
+                },
+            };
+            sandbox.window = {
+                setTimeout: sandbox.setTimeout,
+                clearTimeout,
+            };
+
+            (async () => {
+                vm.runInNewContext(source, sandbox, { filename: 'comfyui-workbench.js' });
+                sandbox.window.ComfyUIWorkbench.init();
+                await Promise.resolve();
+
+                const firstInstall = sandbox.window.ComfyUIWorkbench.installRuntime();
+                const secondInstall = sandbox.window.ComfyUIWorkbench.installRuntime();
+                await Promise.resolve();
+                const installDisabledDuringRequest = elements.comfyInstallBtn.disabled;
+                installResolve();
+                await firstInstall;
+                await secondInstall;
+
+                const firstStart = sandbox.window.ComfyUIWorkbench.startRuntime();
+                const secondStart = sandbox.window.ComfyUIWorkbench.startRuntime();
+                await Promise.resolve();
+                const startDisabledDuringRequest = elements.comfyStartBtn.disabled;
+                startResolve();
+                await firstStart;
+                await secondStart;
+
+                console.log(JSON.stringify({
+                    installPosts: calls.filter((url) => url === '/api/comfyui/runtime/install').length,
+                    startPosts: calls.filter((url) => url === '/api/comfyui/runtime/start').length,
+                    installDisabledDuringRequest,
+                    startDisabledDuringRequest,
+                    installDisabledAfterRequest: elements.comfyInstallBtn.disabled,
+                    startDisabledAfterRequest: elements.comfyStartBtn.disabled,
+                    logText: elements.comfyRunLog.textContent,
+                }));
+            })().catch((error) => {
+                console.error(error && error.stack ? error.stack : error);
+                process.exit(1);
+            });
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script],
+            cwd=Path.cwd(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(payload["installPosts"], 1)
+        self.assertEqual(payload["startPosts"], 1)
+        self.assertTrue(payload["installDisabledDuringRequest"])
+        self.assertTrue(payload["startDisabledDuringRequest"])
+        self.assertFalse(payload["installDisabledAfterRequest"])
+        self.assertFalse(payload["startDisabledAfterRequest"])
+        self.assertIn("启动请求已发送，正在检查连接状态", payload["logText"])
+        self.assertNotIn("127.0.0.1", payload["logText"])
 
 
 if __name__ == "__main__":
