@@ -46,6 +46,8 @@ class ComfyUIWorkflowServiceTest(unittest.TestCase):
         self.assertEqual(result["links"][0]["fromOutput"], 0)
         self.assertEqual(result["links"][0]["toNode"], "2")
         self.assertEqual(result["links"][0]["toInput"], "image1")
+        self.assertNotEqual(result["nodes"][0]["position"], result["nodes"][1]["position"])
+        self.assertGreater(result["nodes"][1]["position"]["x"], result["nodes"][0]["position"]["x"])
 
     def test_normalize_workflow_rejects_non_api_format(self):
         from src.services.comfyui_workflow_service import normalize_workflow

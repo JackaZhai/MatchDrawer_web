@@ -18,7 +18,7 @@ def normalize_workflow(workflow: dict[str, Any]) -> dict[str, Any]:
 
     nodes = []
     links = []
-    for node_id in sorted(workflow.keys(), key=_node_sort_key):
+    for index, node_id in enumerate(sorted(workflow.keys(), key=_node_sort_key)):
         node = workflow[node_id]
         class_type = _validate_workflow_node(node)
 
@@ -33,7 +33,7 @@ def normalize_workflow(workflow: dict[str, Any]) -> dict[str, Any]:
                 "title": _node_title(node, class_type),
                 "kind": _node_kind(class_type),
                 "inputs": deepcopy(inputs),
-                "position": {"x": 0, "y": 0},
+                "position": _default_node_position(index),
             }
         )
         links.extend(_extract_links(node_id, inputs))
@@ -86,6 +86,10 @@ def _node_sort_key(node_id: str) -> tuple[int, int | str]:
         return (0, int(node_id))
     except (TypeError, ValueError):
         return (1, str(node_id))
+
+
+def _default_node_position(index: int) -> dict[str, int]:
+    return {"x": 120 + index * 220, "y": 120 + (index % 3) * 110}
 
 
 def _node_title(node: dict[str, Any], class_type: str) -> str:
