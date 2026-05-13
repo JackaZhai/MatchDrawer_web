@@ -405,8 +405,9 @@ class AIService:
         text_model = (data.get("textModel") or data.get("text_model") or "").strip()
         image_model = (data.get("imageModel") or data.get("image_model") or "").strip()
         svc = get_provider_config_service()
-        text_defaults = svc.get_defaults(int(user_id) if user_id else 1, text_provider)
-        image_defaults = svc.get_defaults(int(user_id) if user_id else 1, image_provider)
+        key_owner_id = self.api_key_service.get_global_key_owner_id()
+        text_defaults = svc.get_defaults(key_owner_id, text_provider)
+        image_defaults = svc.get_defaults(key_owner_id, image_provider)
 
         # If UI did not specify, use defaults per selected provider.
         text_model = text_model or text_defaults.get("textModel") or ""
@@ -415,21 +416,12 @@ class AIService:
         # Final fallback mapping from the legacy "nano-banana-*" preset.
         if not text_model or not image_model:
             preset_map = {
-                "sora-image": ("sora-image", "sora-image"),
-                "gpt-image-1.5": ("gpt-image-1.5", "gpt-image-1.5"),
-                "nano-banana-fast": ("nano-banana-fast", "nano-banana-fast"),
-                "nano-banana": ("nano-banana", "nano-banana"),
-                "nano-banana-2": ("nano-banana-2", "nano-banana-2"),
-                "nano-banana-pro": ("nano-banana-pro", "nano-banana-pro"),
-                "nano-banana-pro-vt": ("nano-banana-pro-vt", "nano-banana-pro-vt"),
-                "nano-banana-2-cl": ("nano-banana-2-cl", "nano-banana-2-cl"),
-                "nano-banana-pro-cl": ("nano-banana-pro-cl", "nano-banana-pro-cl"),
-                "nano-banana-2-4k-cl": ("nano-banana-2-4k-cl", "nano-banana-2-4k-cl"),
-                "nano-banana-pro-vip": ("nano-banana-pro-vip", "nano-banana-pro-vip"),
-                "nano-banana-pro-4k-vip": (
-                    "nano-banana-pro-4k-vip",
-                    "nano-banana-pro-4k-vip",
-                ),
+                "gpt-image-2": ("gemini-2.5-pro", "gpt-image-2"),
+                "nano-banana-pro": ("gemini-2.5-pro", "nano-banana-pro"),
+                "nano-banana-pro-vt": ("gemini-2.5-pro", "nano-banana-pro-vt"),
+                "nano-banana-2": ("gemini-2.5-pro", "nano-banana-2"),
+                "nano-banana-fast": ("gemini-2.5-pro", "nano-banana-fast"),
+                "nano-banana": ("gemini-2.5-pro", "nano-banana"),
             }
             mapped = preset_map.get(preset) or preset_map["nano-banana-pro"]
             text_model = text_model or mapped[0]

@@ -49,6 +49,29 @@ class ComfyUIWorkflowServiceTest(unittest.TestCase):
         self.assertNotEqual(result["nodes"][0]["position"], result["nodes"][1]["position"])
         self.assertGreater(result["nodes"][1]["position"]["x"], result["nodes"][0]["position"]["x"])
 
+    def test_normalize_workflow_uses_meta_position_when_present(self):
+        from src.services.comfyui_workflow_service import normalize_workflow
+
+        workflow = {
+            "1": {
+                "class_type": "LoadImage",
+                "inputs": {"image": "input.png"},
+                "_meta": {
+                    "title": "Positioned image",
+                    "position": {"x": 360, "y": 240},
+                },
+            },
+            "2": {
+                "class_type": "PreviewImage",
+                "inputs": {"images": ["1", 0]},
+            },
+        }
+
+        result = normalize_workflow(workflow)
+
+        self.assertEqual(result["nodes"][0]["position"], {"x": 360, "y": 240})
+        self.assertEqual(result["nodes"][1]["position"], {"x": 340, "y": 230})
+
     def test_normalize_workflow_rejects_non_api_format(self):
         from src.services.comfyui_workflow_service import normalize_workflow
         from src.utils.errors import ValidationError

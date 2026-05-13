@@ -10,16 +10,23 @@ class ModelCatalogTest(unittest.TestCase):
         ai_service = Path("src/services/ai_service.py").read_text(encoding="utf-8")
 
         expected_models = [
-            "sora-image",
-            "gpt-image-1.5",
-            "nano-banana-fast",
-            "nano-banana",
-            "nano-banana-2",
+            "gpt-image-2",
             "nano-banana-pro",
             "nano-banana-pro-vt",
+            "nano-banana-2",
+            "nano-banana-fast",
+            "nano-banana",
+        ]
+        expected_text_models = [
+            "gemini-3.1-pro",
+            "gemini-3-pro",
+            "gemini-2.5-pro",
+        ]
+        excluded_models = [
+            "gpt-image-2-vip",
             "nano-banana-2-cl",
-            "nano-banana-pro-cl",
             "nano-banana-2-4k-cl",
+            "nano-banana-pro-cl",
             "nano-banana-pro-vip",
             "nano-banana-pro-4k-vip",
         ]
@@ -29,8 +36,19 @@ class ModelCatalogTest(unittest.TestCase):
             self.assertIn(model, app_js, model)
             self.assertIn(model, ai_service, model)
 
+        for model in expected_text_models:
+            self.assertIn(model, api_service, model)
+            self.assertIn(model, app_js, model)
+            self.assertNotIn(f'"{model}": ("{model}", "{model}")', ai_service)
+
         self.assertIn("nano-banana-2", manual)
-        self.assertIn("nano-banana-pro-vip", manual)
+        self.assertIn("nano-banana-pro-vt", manual)
+
+        for model in excluded_models:
+            self.assertNotIn(model, api_service, model)
+            self.assertNotIn(model, app_js, model)
+            self.assertNotIn(model, ai_service, model)
+            self.assertNotIn(model, manual, model)
 
 
 if __name__ == "__main__":

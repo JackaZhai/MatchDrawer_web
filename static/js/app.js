@@ -7,6 +7,12 @@ const AppState = {
     currentPage: 'dashboard',
     theme: localStorage.getItem('theme') || 'light',
     language: localStorage.getItem('uiLanguage') || 'zh-CN',
+    currentUser: null,
+    isAdmin: false,
+    managedUsers: [],
+    managedUsersPage: 1,
+    managedUsersPageSize: 20,
+    managedUsersCollapsed: false,
     hasKey: false,
     keyStore: null,
     apiHost: '',
@@ -42,6 +48,8 @@ const DOM = {
     // 侧边栏
     sidebar: document.querySelector('.sidebar'),
     navItems: document.querySelectorAll('.nav-item'),
+    mainContent: document.querySelector('.main-content'),
+    comfyFeatureLockOverlay: document.getElementById('comfyFeatureLockOverlay'),
 
     // 顶部栏
     pageTitle: document.getElementById('pageTitle'),
@@ -56,17 +64,24 @@ const DOM = {
     apiUsage: document.getElementById('apiUsage'),
     refreshActivities: document.getElementById('refreshActivities'),
     activitiesList: document.getElementById('activitiesList'),
+    recentImageHistoryGrid: document.getElementById('recentImageHistoryGrid'),
 
     // 图像生成
     promptInput: document.getElementById('promptInput'),
+    gptUnifiedParamsPanel: document.getElementById('gptUnifiedParamsPanel'),
+    gptUnifiedControlsMount: document.getElementById('gptUnifiedControlsMount'),
+    gptUnifiedGalleryMount: document.getElementById('gptUnifiedGalleryMount'),
     paperPromptInput: document.getElementById('paperPromptInput'),
     generationTextProviderSelect: document.getElementById('generationTextProviderSelect'),
     generationImageProviderSelect: document.getElementById('generationImageProviderSelect'),
+    paperImageProviderSelect: document.getElementById('paperImageProviderSelect'),
     generationTextModelSelect: document.getElementById('generationTextModelSelect'),
     generationImageModelSelect: document.getElementById('generationImageModelSelect'),
+    paperImageModelSelect: document.getElementById('paperImageModelSelect'),
     generationExpModeSelect: document.getElementById('generationExpModeSelect'),
     generationRetrievalSelect: document.getElementById('generationRetrievalSelect'),
     generationImageSizeSelect: document.getElementById('generationImageSizeSelect'),
+    paperImageSizeSelect: document.getElementById('paperImageSizeSelect'),
     generationCriticRoundsInput: document.getElementById('generationCriticRoundsInput'),
     generationCriticEnabledCheck: document.getElementById('generationCriticEnabledCheck'),
     generationEvalEnabledCheck: document.getElementById('generationEvalEnabledCheck'),
@@ -117,24 +132,48 @@ const DOM = {
     timeoutSelect: document.getElementById('timeoutSelect'),
     retrySelect: document.getElementById('retrySelect'),
     uiLanguageSelect: document.getElementById('uiLanguageSelect'),
+    accountSummaryText: document.getElementById('accountSummaryText'),
+    sidebarUserMenu: document.getElementById('sidebarUserMenu'),
+    sidebarUserAvatar: document.getElementById('sidebarUserAvatar'),
+    sidebarUserName: document.getElementById('sidebarUserName'),
+    sidebarUserMeta: document.getElementById('sidebarUserMeta'),
+    sidebarUserStatus: document.getElementById('sidebarUserStatus'),
+    changePasswordOld: document.getElementById('changePasswordOld'),
+    changePasswordNew: document.getElementById('changePasswordNew'),
+    changePasswordConfirm: document.getElementById('changePasswordConfirm'),
+    changePasswordBtn: document.getElementById('changePasswordBtn'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    userManagementGroup: document.getElementById('userManagementGroup'),
+    managedUsername: document.getElementById('managedUsername'),
+    managedPassword: document.getElementById('managedPassword'),
+    managedRole: document.getElementById('managedRole'),
+    managedStatus: document.getElementById('managedStatus'),
+    createManagedUserBtn: document.getElementById('createManagedUserBtn'),
+    adminUserSearchInput: document.getElementById('adminUserSearchInput'),
+    adminUsersPageSizeSelect: document.getElementById('adminUsersPageSizeSelect'),
+    adminUsersCollapseBtn: document.getElementById('adminUsersCollapseBtn'),
+    adminUsersTableWrap: document.getElementById('adminUsersTableWrap'),
+    adminUsersPagination: document.getElementById('adminUsersPagination'),
+    adminUsersPrevBtn: document.getElementById('adminUsersPrevBtn'),
+    adminUsersNextBtn: document.getElementById('adminUsersNextBtn'),
+    adminUsersPageInfo: document.getElementById('adminUsersPageInfo'),
+    adminUsersTableBody: document.getElementById('adminUsersTableBody'),
 
 };
 
 const I18N_STRINGS = {
     'zh-CN': {
-        'nav.dashboard': '工作台',
+        'nav.dashboard': '首页',
         'nav.image_generation': '图像生成',
         'nav.comfyui_workbench': '生图工作台',
-        'nav.gpt_image': 'GPT 画图',
         'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API 设置',
         'nav.settings': '设置',
-        'page.dashboard': '工作台',
+        'page.dashboard': '首页',
         'page.image_generation': '图像生成',
         'page.comfyui_workbench': '生图工作台',
-        'page.gpt_image': 'GPT 画图',
         'page.paperbanana': 'PaperBanana',
-        'page.api_keys': 'API 设置',
+        'page.api_keys': '全局 API 设置',
         'page.settings': '系统设置',
         'action.toggle_theme': '切换主题',
         'window.minimize': '最小化',
@@ -198,19 +237,17 @@ const I18N_STRINGS = {
         'stage.critic_round': '第{round}次审图'
     },
     'en-US': {
-        'nav.dashboard': 'Dashboard',
+        'nav.dashboard': 'Home',
         'nav.image_generation': 'Image Generation',
         'nav.comfyui_workbench': 'Image Workbench',
-        'nav.gpt_image': 'GPT Image',
         'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API Settings',
         'nav.settings': 'Settings',
-        'page.dashboard': 'Dashboard',
+        'page.dashboard': 'Home',
         'page.image_generation': 'Image Generation',
         'page.comfyui_workbench': 'Image Workbench',
-        'page.gpt_image': 'GPT Image',
         'page.paperbanana': 'PaperBanana',
-        'page.api_keys': 'API Settings',
+        'page.api_keys': 'Global API Settings',
         'page.settings': 'System Settings',
         'action.toggle_theme': 'Toggle theme',
         'window.minimize': 'Minimize',
@@ -346,9 +383,6 @@ const PageConfig = {
     'comfyui-workbench': {
         titleKey: 'page.comfyui_workbench'
     },
-    'gpt-image': {
-        titleKey: 'page.gpt_image'
-    },
     paperbanana: {
         titleKey: 'page.paperbanana'
     },
@@ -398,18 +432,12 @@ const PROVIDER_MODEL_CATALOG = {
     grsai: {
         text: ['gemini-3.1-pro', 'gemini-3-pro', 'gemini-2.5-pro'],
         image: [
-            'sora-image',
-            'gpt-image-1.5',
-            'nano-banana-fast',
-            'nano-banana',
-            'nano-banana-2',
+            'gpt-image-2',
             'nano-banana-pro',
             'nano-banana-pro-vt',
-            'nano-banana-2-cl',
-            'nano-banana-pro-cl',
-            'nano-banana-2-4k-cl',
-            'nano-banana-pro-vip',
-            'nano-banana-pro-4k-vip'
+            'nano-banana-2',
+            'nano-banana-fast',
+            'nano-banana'
         ]
     },
     openai: {
@@ -460,18 +488,12 @@ const ALLOWED_TEXT_MODELS = new Set([
 ]);
 
 const ALLOWED_IMAGE_MODELS = new Set([
-    'sora-image',
-    'gpt-image-1.5',
-    'nano-banana-fast',
-    'nano-banana',
-    'nano-banana-2',
+    'gpt-image-2',
     'nano-banana-pro',
     'nano-banana-pro-vt',
-    'nano-banana-2-cl',
-    'nano-banana-pro-cl',
-    'nano-banana-2-4k-cl',
-    'nano-banana-pro-vip',
-    'nano-banana-pro-4k-vip'
+    'nano-banana-2',
+    'nano-banana-fast',
+    'nano-banana'
 ]);
 const MULTIMODAL_REQUIRED_EXP_MODES = new Set([
     'dev_full',
@@ -502,6 +524,11 @@ function normalizeProviderName(provider) {
 
 function uniq(arr) {
     return Array.from(new Set((arr || []).filter(Boolean)));
+}
+
+function withUnifiedImageModels(models) {
+    const list = uniq(models);
+    return list.includes('gpt-image-2') ? list : [...list, 'gpt-image-2'];
 }
 
 function loadGenerationModelPrefs() {
@@ -600,8 +627,14 @@ function getModelOptionLabel(provider, model, lane = 'text') {
     const m = String(model || '').trim().toLowerCase();
     if (
         lane === 'image' &&
+        m === 'gpt-image-2'
+    ) {
+        return 'GPT Image';
+    }
+    if (
+        lane === 'image' &&
         p === 'grsai' &&
-        ['sora-image', 'gpt-image-1.5', 'nano-banana-fast', 'nano-banana', 'nano-banana-2'].includes(m)
+        ['nano-banana-fast', 'nano-banana', 'nano-banana-2'].includes(m)
     ) {
         return `${model}（价格便宜，测试用）`;
     }
@@ -624,29 +657,40 @@ function refreshGenerationModelOptions(storeOverride = null) {
     const activeProviders = options.activeProviders || ['grsai'];
     const savedTextProvider = localStorage.getItem('generationTextProvider') || 'grsai';
     const savedImageProvider = localStorage.getItem('generationImageProvider') || 'grsai';
+    const savedPaperImageProvider = localStorage.getItem('paperImageProvider') || 'grsai';
     const textProviderValue = (DOM.generationTextProviderSelect && DOM.generationTextProviderSelect.value) || savedTextProvider;
     const imageProviderValue = (DOM.generationImageProviderSelect && DOM.generationImageProviderSelect.value) || savedImageProvider;
+    const paperImageProviderValue = (DOM.paperImageProviderSelect && DOM.paperImageProviderSelect.value) || savedPaperImageProvider;
     const selectedTextProvider = activeProviders.includes(textProviderValue)
         ? textProviderValue
         : (activeProviders.includes(savedTextProvider) ? savedTextProvider : (activeProviders[0] || 'grsai'));
     const selectedImageProvider = activeProviders.includes(imageProviderValue)
         ? imageProviderValue
         : (activeProviders.includes(savedImageProvider) ? savedImageProvider : (activeProviders[0] || 'grsai'));
+    const selectedPaperImageProvider = activeProviders.includes(paperImageProviderValue)
+        ? paperImageProviderValue
+        : (activeProviders.includes(savedPaperImageProvider) ? savedPaperImageProvider : (activeProviders[0] || 'grsai'));
 
     renderProviderSelect(DOM.generationTextProviderSelect, activeProviders, selectedTextProvider);
     renderProviderSelect(DOM.generationImageProviderSelect, activeProviders, selectedImageProvider);
+    renderProviderSelect(DOM.paperImageProviderSelect, activeProviders, selectedPaperImageProvider);
     if (DOM.generationTextProviderSelect) DOM.generationTextProviderSelect.value = selectedTextProvider;
     if (DOM.generationImageProviderSelect) DOM.generationImageProviderSelect.value = selectedImageProvider;
+    if (DOM.paperImageProviderSelect) DOM.paperImageProviderSelect.value = selectedPaperImageProvider;
     localStorage.setItem('generationTextProvider', selectedTextProvider);
     localStorage.setItem('generationImageProvider', selectedImageProvider);
+    localStorage.setItem('paperImageProvider', selectedPaperImageProvider);
 
     const textModels = options.textByProvider[selectedTextProvider] || [];
-    const imageModels = options.imageByProvider[selectedImageProvider] || [];
+    const imageModels = withUnifiedImageModels(options.imageByProvider[selectedImageProvider] || []);
+    const paperImageModels = options.imageByProvider[selectedPaperImageProvider] || [];
     const modelPrefs = loadGenerationModelPrefs();
     const prefText = (((modelPrefs || {}).text || {})[selectedTextProvider] || '').trim();
     const prefImage = (((modelPrefs || {}).image || {})[selectedImageProvider] || '').trim();
+    const prefPaperImage = (((modelPrefs || {}).paperImage || {})[selectedPaperImageProvider] || '').trim();
     const currentText = DOM.generationTextModelSelect ? DOM.generationTextModelSelect.value : '';
     const currentImage = DOM.generationImageModelSelect ? DOM.generationImageModelSelect.value : '';
+    const currentPaperImage = DOM.paperImageModelSelect ? DOM.paperImageModelSelect.value : '';
 
     renderFlatModelSelect(
         DOM.generationTextModelSelect,
@@ -662,6 +706,13 @@ function refreshGenerationModelOptions(storeOverride = null) {
         selectedImageProvider,
         'image'
     );
+    renderFlatModelSelect(
+        DOM.paperImageModelSelect,
+        paperImageModels,
+        paperImageModels.includes(prefPaperImage) ? prefPaperImage : currentPaperImage,
+        selectedPaperImageProvider,
+        'image'
+    );
 
     if (DOM.generationTextModelSelect && !DOM.generationTextModelSelect.value) {
         DOM.generationTextModelSelect.value = textModels[0] || '';
@@ -669,13 +720,21 @@ function refreshGenerationModelOptions(storeOverride = null) {
     if (DOM.generationImageModelSelect && !DOM.generationImageModelSelect.value) {
         DOM.generationImageModelSelect.value = imageModels[0] || '';
     }
+    if (DOM.paperImageModelSelect && !DOM.paperImageModelSelect.value) {
+        DOM.paperImageModelSelect.value = paperImageModels[0] || '';
+    }
 
     persistLaneModelSelection('text', selectedTextProvider, DOM.generationTextModelSelect ? DOM.generationTextModelSelect.value : '');
     persistLaneModelSelection('image', selectedImageProvider, DOM.generationImageModelSelect ? DOM.generationImageModelSelect.value : '');
+    persistLaneModelSelection('paperImage', selectedPaperImageProvider, DOM.paperImageModelSelect ? DOM.paperImageModelSelect.value : '');
     refreshGenerationWorkflowControlState(false);
 }
 
 async function loadGenerationModelOptionsFromKeys() {
+    if (!AppState.isAdmin) {
+        refreshGenerationModelOptions(AppState.keyStore || null);
+        return;
+    }
     try {
         const res = await fetch('/api/keys', { method: 'GET', credentials: 'same-origin' });
         const data = await res.json();
@@ -1064,7 +1123,7 @@ function startBackgroundGenerationTracking(taskId, mode = 'generic') {
 function getGenerationWorkflowConfig() {
     const expMode = (localStorage.getItem('generationExpMode') || '').trim();
     const retrievalSetting = (localStorage.getItem('generationRetrieval') || '').trim();
-    const imageSizeRaw = (localStorage.getItem('generationImageSize') || '1K').toUpperCase().trim();
+    const imageSizeRaw = (localStorage.getItem('paperImageSize') || '1K').toUpperCase().trim();
     const imageSize = ['1K', '2K', '4K'].includes(imageSizeRaw) ? imageSizeRaw : '1K';
     const criticEnabled = localStorage.getItem('generationCriticEnabled') !== '0';
     const evalEnabled = localStorage.getItem('generationEvalEnabled') !== '0';
@@ -1213,8 +1272,8 @@ function syncGenerationWorkflowOptions() {
     if (DOM.generationRetrievalSelect) {
         DOM.generationRetrievalSelect.value = cfg.retrievalSetting;
     }
-    if (DOM.generationImageSizeSelect) {
-        DOM.generationImageSizeSelect.value = cfg.imageSize;
+    if (DOM.paperImageSizeSelect) {
+        DOM.paperImageSizeSelect.value = cfg.imageSize;
     }
     if (DOM.generationCriticEnabledCheck) {
         DOM.generationCriticEnabledCheck.checked = !!cfg.criticEnabled;
@@ -1776,12 +1835,9 @@ function initWorkflowGraph() {
 
 // 初始化应用
 function initApp() {
-    console.log("初始化 MatchDrawer 应用...");
-
     // 设置主题
     setTheme(AppState.theme);
     applyLanguage(AppState.language, false);
-
     // 绑定事件
     bindEvents();
     renderReferenceImages();
@@ -1795,8 +1851,6 @@ function initApp() {
     showPage(AppState.currentPage);
     updatePaperStage('queued', 'i18n:paper.message.idle_hint', 'idle');
     updatePaperTaskId('');
-
-    console.log('应用初始化完成');
 }
 
 // 设置主题
@@ -1835,6 +1889,100 @@ function bindEvents() {
             applyLanguage(DOM.uiLanguageSelect.value, true);
         });
     }
+    if (DOM.sidebarUserMenu) {
+        DOM.sidebarUserMenu.addEventListener('click', (e) => {
+            e.preventDefault();
+            showPage('settings');
+        });
+    }
+    if (DOM.changePasswordBtn) {
+        DOM.changePasswordBtn.addEventListener('click', async () => {
+            try {
+                await submitPasswordChange();
+            } catch (error) {
+                ErrorHandler.handleApiError(error, '修改密码');
+            }
+        });
+    }
+    if (DOM.logoutBtn) {
+        DOM.logoutBtn.addEventListener('click', async () => {
+            if (window.MatchDrawerAuth && typeof window.MatchDrawerAuth.logout === 'function') {
+                await window.MatchDrawerAuth.logout();
+            }
+        });
+    }
+    if (DOM.createManagedUserBtn) {
+        DOM.createManagedUserBtn.addEventListener('click', async () => {
+            try {
+                await submitManagedUserCreate();
+            } catch (error) {
+                ErrorHandler.handleApiError(error, '创建用户');
+            }
+        });
+    }
+    if (DOM.adminUserSearchInput) {
+        DOM.adminUserSearchInput.addEventListener('input', () => {
+            AppState.managedUsersPage = 1;
+            renderAdminUsersTable();
+        });
+    }
+    if (DOM.adminUsersPageSizeSelect) {
+        DOM.adminUsersPageSizeSelect.addEventListener('change', () => {
+            AppState.managedUsersPageSize = Number(DOM.adminUsersPageSizeSelect.value || 20);
+            AppState.managedUsersPage = 1;
+            renderAdminUsersTable();
+        });
+    }
+    if (DOM.adminUsersCollapseBtn) {
+        DOM.adminUsersCollapseBtn.addEventListener('click', () => {
+            AppState.managedUsersCollapsed = !AppState.managedUsersCollapsed;
+            renderAdminUsersTable();
+        });
+    }
+    if (DOM.adminUsersPrevBtn) {
+        DOM.adminUsersPrevBtn.addEventListener('click', () => {
+            AppState.managedUsersPage = Math.max(1, AppState.managedUsersPage - 1);
+            renderAdminUsersTable();
+        });
+    }
+    if (DOM.adminUsersNextBtn) {
+        DOM.adminUsersNextBtn.addEventListener('click', () => {
+            AppState.managedUsersPage += 1;
+            renderAdminUsersTable();
+        });
+    }
+    if (DOM.adminUsersTableBody) {
+        DOM.adminUsersTableBody.addEventListener('click', async (event) => {
+            const button = event.target.closest('[data-admin-action]');
+            if (!button) return;
+
+            const userId = button.dataset.userId;
+            const action = button.dataset.adminAction;
+            if (!userId || !action) return;
+
+            try {
+                if (action === 'toggle-status') {
+                    await updateManagedUser(userId, { status: button.dataset.nextStatus || 'disabled' });
+                    showNotification('用户状态已更新', 'success');
+                    return;
+                }
+                if (action === 'toggle-role') {
+                    await updateManagedUser(userId, { role: button.dataset.nextRole || 'user' });
+                    showNotification('用户角色已更新', 'success');
+                    return;
+                }
+                if (action === 'reset-password') {
+                    await resetManagedUserPassword(userId);
+                    return;
+                }
+                if (action === 'delete-user') {
+                    await deleteManagedUser(userId);
+                }
+            } catch (error) {
+                ErrorHandler.handleApiError(error, '用户管理');
+            }
+        });
+    }
 
     // 搜索框
     if (DOM.searchInput) {
@@ -1856,7 +2004,7 @@ function bindEvents() {
 
     // 图像生成事件
     if (DOM.generateBtn) {
-        DOM.generateBtn.addEventListener('click', () => generateImage('generic'));
+        DOM.generateBtn.addEventListener('click', routeUnifiedImageGeneration);
     }
 
     if (DOM.paperGenerateBtn) {
@@ -1942,6 +2090,14 @@ function bindEvents() {
             refreshGenerationModelOptions();
         });
     }
+    if (DOM.paperImageProviderSelect) {
+        DOM.paperImageProviderSelect.addEventListener('change', () => {
+            const prev = localStorage.getItem('paperImageProvider') || 'grsai';
+            persistLaneModelSelection('paperImage', prev, DOM.paperImageModelSelect ? DOM.paperImageModelSelect.value : '');
+            localStorage.setItem('paperImageProvider', DOM.paperImageProviderSelect.value || 'grsai');
+            refreshGenerationModelOptions();
+        });
+    }
     if (DOM.generationTextModelSelect) {
         DOM.generationTextModelSelect.addEventListener('change', () => {
             const provider = (DOM.generationTextProviderSelect && DOM.generationTextProviderSelect.value) || 'grsai';
@@ -1954,6 +2110,13 @@ function bindEvents() {
         DOM.generationImageModelSelect.addEventListener('change', () => {
             const provider = (DOM.generationImageProviderSelect && DOM.generationImageProviderSelect.value) || 'grsai';
             persistLaneModelSelection('image', provider, DOM.generationImageModelSelect.value || '');
+            syncUnifiedImageMode();
+        });
+    }
+    if (DOM.paperImageModelSelect) {
+        DOM.paperImageModelSelect.addEventListener('change', () => {
+            const provider = (DOM.paperImageProviderSelect && DOM.paperImageProviderSelect.value) || 'grsai';
+            persistLaneModelSelection('paperImage', provider, DOM.paperImageModelSelect.value || '');
         });
     }
     if (DOM.generationExpModeSelect) {
@@ -1973,6 +2136,12 @@ function bindEvents() {
         DOM.generationImageSizeSelect.addEventListener('change', () => {
             const value = String(DOM.generationImageSizeSelect.value || '1K').toUpperCase().trim();
             localStorage.setItem('generationImageSize', ['1K', '2K', '4K'].includes(value) ? value : '1K');
+        });
+    }
+    if (DOM.paperImageSizeSelect) {
+        DOM.paperImageSizeSelect.addEventListener('change', () => {
+            const value = String(DOM.paperImageSizeSelect.value || '1K').toUpperCase().trim();
+            localStorage.setItem('paperImageSize', ['1K', '2K', '4K'].includes(value) ? value : '1K');
         });
     }
     if (DOM.generationCriticEnabledCheck) {
@@ -2056,6 +2225,11 @@ function bindEvents() {
 
 // 显示页面
 function showPage(pageId) {
+    if (pageId === 'api-keys' && !AppState.isAdmin) {
+        showNotification('只有管理员可以进入 API 设置', 'warning');
+        pageId = 'settings';
+    }
+
     // 更新当前页面状态
     AppState.currentPage = pageId;
 
@@ -2090,6 +2264,8 @@ function showPage(pageId) {
             break;
         case 'image-generation':
             loadGenerationModelOptionsFromKeys();
+            mountUnifiedGptWorkspace();
+            syncUnifiedImageMode();
             if (DOM.promptInput) {
                 requestAnimationFrame(() => {
                     DOM.promptInput.focus();
@@ -2099,13 +2275,8 @@ function showPage(pageId) {
             }
             break;
         case 'comfyui-workbench':
-            if (window.ComfyUIWorkbench && window.ComfyUIWorkbench.init) {
+            if (AppState.isAdmin && window.ComfyUIWorkbench && window.ComfyUIWorkbench.init) {
                 window.ComfyUIWorkbench.init();
-            }
-            break;
-        case 'gpt-image':
-            if (typeof GPTImage !== 'undefined' && GPTImage.init) {
-                GPTImage.init();
             }
             break;
         case 'paperbanana':
@@ -2120,6 +2291,8 @@ function showPage(pageId) {
             break;
     }
 
+    updateFeatureLockUi();
+
     // 滚动到顶部
     window.scrollTo(0, 0);
 }
@@ -2128,7 +2301,6 @@ function showPage(pageId) {
 function performSearch(query) {
     if (!query.trim()) return;
 
-    console.log('搜索:', query);
     // 这里可以添加实际的搜索逻辑
     showNotification(`搜索: ${query}`, 'info');
 }
@@ -2140,14 +2312,21 @@ async function loadInitialData() {
             const profileRes = await fetch('/api/profile', { method: 'GET', credentials: 'same-origin' });
             const profile = await profileRes.json();
             if (profileRes.ok) {
-                AppState.hasKey = !!profile.hasKey;
-                AppState.apiHost = profile.apiHost || '';
-                AppState.activeBaseUrl = profile.activeBaseUrl || '';
+                AppState.currentUser = profile.user || null;
+                AppState.isAdmin = !!profile.isAdmin;
+            AppState.hasKey = !!profile.hasKey;
+            AppState.apiHost = profile.apiHost || '';
+            AppState.activeBaseUrl = profile.activeBaseUrl || '';
+
+                updateAdminOnlyUi();
 
                 if (DOM.lastUsedTime && profile.usage && profile.usage.lastUsedAt) {
                     DOM.lastUsedTime.textContent = new Date(profile.usage.lastUsedAt).toLocaleString();
                 }
             } else {
+                AppState.currentUser = null;
+                AppState.isAdmin = false;
+                updateAdminOnlyUi();
                 AppState.hasKey = !!(
                     AppState.keyStore &&
                     AppState.keyStore.keys &&
@@ -2155,6 +2334,9 @@ async function loadInitialData() {
                 );
             }
         } catch (e) {
+            AppState.currentUser = null;
+            AppState.isAdmin = false;
+            updateAdminOnlyUi();
             AppState.hasKey = !!(
                 AppState.keyStore &&
                 AppState.keyStore.keys &&
@@ -2168,6 +2350,12 @@ async function loadInitialData() {
         }// 更新仪表盘统计数据
         await updateDashboardStats();
         await loadGenerationModelOptionsFromKeys();
+        renderAccountSecurity();
+        if (AppState.isAdmin) {
+            await loadAdminUsers();
+        } else {
+            renderAdminUsersTable();
+        }
 
         // 初始化活动记录
         refreshActivities();
@@ -2176,9 +2364,340 @@ async function loadInitialData() {
     }
 }
 
+function formatDateTime(value) {
+    if (!value) return '--';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString();
+}
+
+function updateAdminOnlyUi() {
+    DOM.navItems.forEach((item) => {
+        if (item.dataset.page === 'api-keys') {
+            item.hidden = !AppState.isAdmin;
+        }
+    });
+    if (!AppState.isAdmin && AppState.currentPage === 'api-keys') {
+        showPage('settings');
+    }
+    updateFeatureLockUi();
+}
+
+function updateFeatureLockUi() {
+    const shouldLock = AppState.currentPage === 'comfyui-workbench' && !AppState.isAdmin;
+    if (DOM.mainContent) {
+        DOM.mainContent.classList.toggle('has-feature-lock', shouldLock);
+    }
+    if (DOM.comfyFeatureLockOverlay) {
+        DOM.comfyFeatureLockOverlay.hidden = !shouldLock;
+        DOM.comfyFeatureLockOverlay.setAttribute('aria-hidden', shouldLock ? 'false' : 'true');
+    }
+}
+
+function renderAccountSecurity() {
+    if (DOM.accountSummaryText) {
+        if (!AppState.currentUser) {
+            DOM.accountSummaryText.textContent = '--';
+        } else {
+            const user = AppState.currentUser;
+            DOM.accountSummaryText.textContent = user.username || '--';
+        }
+    }
+    if (DOM.sidebarUserAvatar || DOM.sidebarUserName || DOM.sidebarUserMeta || DOM.sidebarUserStatus) {
+        if (!AppState.currentUser) {
+            if (DOM.sidebarUserAvatar) DOM.sidebarUserAvatar.textContent = '--';
+            if (DOM.sidebarUserName) DOM.sidebarUserName.textContent = '未登录';
+            if (DOM.sidebarUserMeta) DOM.sidebarUserMeta.textContent = '请先登录';
+            if (DOM.sidebarUserStatus) DOM.sidebarUserStatus.textContent = '--';
+        } else {
+            const user = AppState.currentUser;
+            const username = String(user.username || '--');
+            const role = String(user.role || 'user');
+            const status = String(user.status || 'active');
+            if (DOM.sidebarUserAvatar) DOM.sidebarUserAvatar.textContent = username.slice(0, 1).toUpperCase();
+            if (DOM.sidebarUserName) DOM.sidebarUserName.textContent = username;
+            if (DOM.sidebarUserMeta) DOM.sidebarUserMeta.textContent = role;
+            if (DOM.sidebarUserStatus) DOM.sidebarUserStatus.textContent = status === 'active' ? '在线' : '禁用';
+        }
+    }
+    if (DOM.userManagementGroup) {
+        DOM.userManagementGroup.hidden = !AppState.isAdmin;
+    }
+}
+
+function renderAdminUsersTable() {
+    if (!DOM.adminUsersTableBody) return;
+
+    if (DOM.adminUsersPageSizeSelect) {
+        DOM.adminUsersPageSizeSelect.value = String(AppState.managedUsersPageSize);
+    }
+    if (DOM.adminUsersCollapseBtn) {
+        DOM.adminUsersCollapseBtn.textContent = AppState.managedUsersCollapsed ? '展开列表' : '折叠列表';
+    }
+    if (DOM.adminUsersTableWrap) {
+        DOM.adminUsersTableWrap.hidden = AppState.managedUsersCollapsed;
+    }
+    if (DOM.adminUsersPagination) {
+        DOM.adminUsersPagination.hidden = AppState.managedUsersCollapsed;
+    }
+    if (AppState.managedUsersCollapsed) {
+        return;
+    }
+
+    if (!AppState.isAdmin) {
+        DOM.adminUsersTableBody.innerHTML = '<tr><td colspan="6">当前账号无管理员权限。</td></tr>';
+        return;
+    }
+
+    const allUsers = Array.isArray(AppState.managedUsers) ? AppState.managedUsers : [];
+    const query = DOM.adminUserSearchInput ? DOM.adminUserSearchInput.value.trim().toLowerCase() : '';
+    const users = query
+        ? allUsers.filter((user) => {
+            const haystack = [
+                user.username,
+                user.role,
+                user.status,
+                user.created_at || user.createdAt,
+                user.last_login_at || user.lastLoginAt
+            ].join(' ').toLowerCase();
+            return haystack.includes(query);
+        })
+        : allUsers;
+    if (users.length === 0) {
+        DOM.adminUsersTableBody.innerHTML = `<tr><td colspan="6">${query ? '没有匹配的用户。' : '暂无用户数据。'}</td></tr>`;
+        if (DOM.adminUsersPageInfo) DOM.adminUsersPageInfo.textContent = '第 0 / 0 页';
+        if (DOM.adminUsersPrevBtn) DOM.adminUsersPrevBtn.disabled = true;
+        if (DOM.adminUsersNextBtn) DOM.adminUsersNextBtn.disabled = true;
+        return;
+    }
+
+    const pageSize = [10, 20, 50, 100].includes(Number(AppState.managedUsersPageSize))
+        ? Number(AppState.managedUsersPageSize)
+        : 20;
+    const pageCount = Math.max(1, Math.ceil(users.length / pageSize));
+    AppState.managedUsersPage = Math.min(Math.max(1, AppState.managedUsersPage), pageCount);
+    const pageStart = (AppState.managedUsersPage - 1) * pageSize;
+    const visibleUsers = users.slice(pageStart, pageStart + pageSize);
+    if (DOM.adminUsersPageInfo) {
+        DOM.adminUsersPageInfo.textContent = `第 ${AppState.managedUsersPage} / ${pageCount} 页，共 ${users.length} 个用户`;
+    }
+    if (DOM.adminUsersPrevBtn) DOM.adminUsersPrevBtn.disabled = AppState.managedUsersPage <= 1;
+    if (DOM.adminUsersNextBtn) DOM.adminUsersNextBtn.disabled = AppState.managedUsersPage >= pageCount;
+
+    const currentUserId = AppState.currentUser && AppState.currentUser.id ? Number(AppState.currentUser.id) : 0;
+    DOM.adminUsersTableBody.innerHTML = visibleUsers.map((user) => {
+        const userId = Number(user.id || 0);
+        const isSelf = currentUserId > 0 && currentUserId === userId;
+        const nextStatus = user.status === 'active' ? 'disabled' : 'active';
+        const nextRole = user.role === 'admin' ? 'user' : 'admin';
+        return `
+            <tr>
+                <td>${escapeHtml(user.username || '--')}${isSelf ? ' <span class="badge badge-secondary">当前</span>' : ''}</td>
+                <td>${escapeHtml(user.role || '--')}</td>
+                <td>${escapeHtml(user.status || '--')}</td>
+                <td>${escapeHtml(formatDateTime(user.created_at || user.createdAt))}</td>
+                <td>${escapeHtml(formatDateTime(user.last_login_at || user.lastLoginAt))}</td>
+                <td>
+                    <div class="admin-user-actions">
+                        <button class="btn btn-outline btn-sm" data-admin-action="toggle-status" data-user-id="${userId}" data-next-status="${nextStatus}">
+                            ${nextStatus === 'disabled' ? '禁用' : '启用'}
+                        </button>
+                        <button class="btn btn-outline btn-sm" data-admin-action="toggle-role" data-user-id="${userId}" data-next-role="${nextRole}">
+                            ${nextRole === 'admin' ? '设为管理员' : '降为普通用户'}
+                        </button>
+                        <button class="btn btn-outline btn-sm" data-admin-action="reset-password" data-user-id="${userId}">重置密码</button>
+                        <button class="btn btn-outline btn-sm" data-admin-action="delete-user" data-user-id="${userId}">删除</button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function pemToArrayBuffer(pem) {
+    const base64 = String(pem || '')
+        .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+        .replace(/-----END PUBLIC KEY-----/g, '')
+        .replace(/\s+/g, '');
+    const binary = window.atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+async function importPublicKey(publicKeyPem) {
+    return window.crypto.subtle.importKey(
+        'spki',
+        pemToArrayBuffer(publicKeyPem),
+        { name: 'RSA-OAEP', hash: 'SHA-256' },
+        false,
+        ['encrypt']
+    );
+}
+
+async function encryptToHex(publicKey, plaintext) {
+    const encoded = new TextEncoder().encode(String(plaintext || ''));
+    const encrypted = await window.crypto.subtle.encrypt({ name: 'RSA-OAEP' }, publicKey, encoded);
+    return Array.from(new Uint8Array(encrypted))
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+}
+
+async function getImportedLoginPublicKey() {
+    const response = await fetch('/api/auth/public-key', { method: 'GET', credentials: 'same-origin' });
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || '获取登录公钥失败');
+    }
+    return importPublicKey(payload.publicKey);
+}
+
+async function loadAdminUsers() {
+    renderAccountSecurity();
+    if (!AppState.isAdmin) {
+        AppState.managedUsers = [];
+        renderAdminUsersTable();
+        return;
+    }
+    const response = await fetch('/api/admin/users', { method: 'GET', credentials: 'same-origin' });
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || '加载用户列表失败');
+    }
+    AppState.managedUsers = payload.users || [];
+    renderAdminUsersTable();
+}
+
+async function submitPasswordChange() {
+    const oldPassword = DOM.changePasswordOld ? DOM.changePasswordOld.value : '';
+    const newPassword = DOM.changePasswordNew ? DOM.changePasswordNew.value : '';
+    const confirmPassword = DOM.changePasswordConfirm ? DOM.changePasswordConfirm.value : '';
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        throw new Error('请完整填写密码字段');
+    }
+    if (newPassword !== confirmPassword) {
+        throw new Error('两次输入的密码不一致');
+    }
+
+    const publicKey = await getImportedLoginPublicKey();
+    const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            oldPassword: await encryptToHex(publicKey, oldPassword),
+            newPassword: await encryptToHex(publicKey, newPassword),
+            confirmPassword: await encryptToHex(publicKey, confirmPassword)
+        })
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || '修改密码失败');
+    }
+
+    if (DOM.changePasswordOld) DOM.changePasswordOld.value = '';
+    if (DOM.changePasswordNew) DOM.changePasswordNew.value = '';
+    if (DOM.changePasswordConfirm) DOM.changePasswordConfirm.value = '';
+    showNotification('密码修改成功，请重新登录', 'success');
+    if (window.MatchDrawerAuth) {
+        window.MatchDrawerAuth.clearToken();
+    }
+    window.location.replace('/login');
+}
+
+async function submitManagedUserCreate() {
+    const username = DOM.managedUsername ? DOM.managedUsername.value.trim() : '';
+    const password = DOM.managedPassword ? DOM.managedPassword.value : '';
+    const role = DOM.managedRole ? DOM.managedRole.value : 'user';
+    const status = DOM.managedStatus ? DOM.managedStatus.value : 'active';
+    if (!username || !password) {
+        throw new Error('请填写用户名和初始密码');
+    }
+
+    const publicKey = await getImportedLoginPublicKey();
+    const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: await encryptToHex(publicKey, username),
+            password: await encryptToHex(publicKey, password),
+            role,
+            status
+        })
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || '创建用户失败');
+    }
+
+    if (DOM.managedUsername) DOM.managedUsername.value = '';
+    if (DOM.managedPassword) DOM.managedPassword.value = '';
+    if (DOM.managedRole) DOM.managedRole.value = 'user';
+    if (DOM.managedStatus) DOM.managedStatus.value = 'active';
+    showNotification('用户已创建', 'success');
+    await loadAdminUsers();
+}
+
+async function updateManagedUser(userId, patch) {
+    const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch)
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || '更新用户失败');
+    }
+    await loadAdminUsers();
+}
+
+async function resetManagedUserPassword(userId) {
+    const nextPassword = window.prompt('请输入新的登录密码');
+    if (nextPassword === null) return;
+    const confirmPassword = window.prompt('请再次输入新密码');
+    if (confirmPassword === null) return;
+
+    const publicKey = await getImportedLoginPublicKey();
+    const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/reset-password`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            password: await encryptToHex(publicKey, nextPassword),
+            confirmPassword: await encryptToHex(publicKey, confirmPassword)
+        })
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || '重置密码失败');
+    }
+    showNotification('密码已重置', 'success');
+}
+
+async function deleteManagedUser(userId) {
+    const confirmed = window.confirm('确认删除这个用户吗？该操作不可恢复。');
+    if (!confirmed) return;
+
+    const response = await fetch(`/api/admin/users/${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+        throw new Error(payload.error || '删除用户失败');
+    }
+    showNotification('用户已删除', 'success');
+    await loadAdminUsers();
+}
+
 // 加载仪表盘数据
 function loadDashboardData() {
     updateDashboardStats();
+    refreshImageHistory();
 }
 
 function getDashboardModels() {
@@ -2239,7 +2758,9 @@ async function refreshModelStatuses() {
 
     DOM.modelStatusList.innerHTML = '<div class="model-status-loading">正在获取模型状态...</div>';
     if (!AppState.hasKey) {
-        DOM.modelStatusList.innerHTML = '<div class="model-status-empty">请先在“API 设置”里添加 Key</div>';
+        DOM.modelStatusList.innerHTML = AppState.isAdmin
+            ? '<div class="model-status-empty">请先在“API 设置”里添加全局 Key</div>'
+            : '<div class="model-status-empty">管理员还没有配置全局 API Key</div>';
         return;
     }
     const results = await Promise.all(models.map(async (model) => {
@@ -2368,6 +2889,204 @@ function formatBytes(bytes) {
     return `${value} ${units[index]}`;
 }
 
+const UNIFIED_IMAGE_HISTORY_KEY = 'matchdrawer_image_history_v1';
+const GPT_IMAGE_TASKS_KEY = 'gpt_image_tasks_v1';
+const IMAGE_HISTORY_MAX_ITEMS = 80;
+
+function normalizeHistoryTimestamp(value) {
+    if (!value) return Date.now();
+    if (typeof value === 'number') return value;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function loadStoredJsonArray(key) {
+    try {
+        const raw = localStorage.getItem(key);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.warn(`读取 ${key} 失败:`, error);
+        return [];
+    }
+}
+
+function normalizeGptTaskHistory(task) {
+    const imageUrl = Array.isArray(task.resultImages) && task.resultImages.length > 0 ? task.resultImages[0] : '';
+    return {
+        id: `gpt:${task.id || task.createdAt || Math.random().toString(36).slice(2)}`,
+        source: 'GPT Image',
+        model: task.params?.model || 'GPT Image',
+        prompt: task.prompt || '',
+        status: task.status || 'pending',
+        imageUrl,
+        createdAt: normalizeHistoryTimestamp(task.createdAt || task.updatedAt),
+        updatedAt: normalizeHistoryTimestamp(task.updatedAt || task.createdAt),
+        origin: 'gpt'
+    };
+}
+
+function normalizeUnifiedHistoryRecord(record) {
+    const createdAt = normalizeHistoryTimestamp(record.createdAt || record.timestamp || record.time);
+    return {
+        id: record.id || `img:${createdAt}:${Math.random().toString(36).slice(2, 8)}`,
+        source: record.source || 'nano-banana-pro',
+        model: record.model || record.source || 'nano-banana-pro',
+        prompt: record.prompt || '',
+        status: record.status || 'completed',
+        imageUrl: record.imageUrl || '',
+        createdAt,
+        updatedAt: normalizeHistoryTimestamp(record.updatedAt || createdAt),
+        origin: record.origin || 'native',
+        error: record.error || ''
+    };
+}
+
+function mergeImageHistoryRecords(...groups) {
+    const byId = new Map();
+    groups.flat().forEach((record) => {
+        const normalized = normalizeUnifiedHistoryRecord(record);
+        const existing = byId.get(normalized.id);
+        if (!existing || normalized.updatedAt >= existing.updatedAt) {
+            byId.set(normalized.id, normalized);
+        }
+    });
+    return Array.from(byId.values())
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, IMAGE_HISTORY_MAX_ITEMS);
+}
+
+function loadUnifiedImageHistory() {
+    const stored = loadStoredJsonArray(UNIFIED_IMAGE_HISTORY_KEY);
+    const gptTasks = loadStoredJsonArray(GPT_IMAGE_TASKS_KEY).map(normalizeGptTaskHistory);
+    return mergeImageHistoryRecords(stored, gptTasks);
+}
+
+function saveUnifiedImageHistory(records) {
+    try {
+        localStorage.setItem(UNIFIED_IMAGE_HISTORY_KEY, JSON.stringify(mergeImageHistoryRecords(records)));
+    } catch (error) {
+        console.warn('保存画图历史失败:', error);
+    }
+}
+
+function addUnifiedImageHistory(record) {
+    const records = loadUnifiedImageHistory();
+    const next = mergeImageHistoryRecords([normalizeUnifiedHistoryRecord(record)], records);
+    saveUnifiedImageHistory(next);
+    refreshImageHistory();
+}
+
+function refreshImageHistory() {
+    if (!DOM.recentImageHistoryGrid) return;
+    const records = loadUnifiedImageHistory().slice(0, 8);
+
+    if (records.length === 0) {
+        DOM.recentImageHistoryGrid.innerHTML = `
+            <div class="image-history-empty">
+                <i class="fas fa-image"></i>
+                <div>
+                    <strong>暂无画图历史</strong>
+                    <span>生成第一张图后会显示在这里</span>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    DOM.recentImageHistoryGrid.innerHTML = records.map((record) => {
+        const status = record.status === 'completed' ? '完成'
+            : record.status === 'failed' ? '失败'
+                : record.status === 'running' ? '生成中' : '排队中';
+        const image = record.imageUrl
+            ? `<img src="${escapeHtml(record.imageUrl)}" alt="" loading="lazy">`
+            : `<div class="image-history-state"><i class="fas ${record.status === 'failed' ? 'fa-exclamation-circle' : 'fa-spinner'}"></i></div>`;
+        const prompt = record.prompt || (record.error ? record.error : '未记录提示词');
+        return `
+            <button type="button" class="image-history-item" data-target="image-generation" title="${escapeHtml(prompt)}">
+                <div class="image-history-thumb">${image}</div>
+                <div class="image-history-body">
+                    <div class="image-history-model">${escapeHtml(record.model || record.source)}</div>
+                    <div class="image-history-prompt">${escapeHtml(prompt)}</div>
+                    <div class="image-history-meta">
+                        <span class="image-history-status ${escapeHtml(record.status)}">${status}</span>
+                        <span>${formatTime(record.createdAt)}</span>
+                    </div>
+                </div>
+            </button>
+        `;
+    }).join('');
+
+    DOM.recentImageHistoryGrid.querySelectorAll('[data-target="image-generation"]').forEach((item) => {
+        item.addEventListener('click', () => showPage('image-generation'));
+    });
+}
+
+function mountUnifiedGptWorkspace() {
+    const playground = document.getElementById('gptImagePlayground');
+    if (!playground || playground.dataset.unifiedMounted === '1') {
+        return;
+    }
+
+    if (typeof GPTImage !== 'undefined' && GPTImage.init) {
+        GPTImage.init();
+    }
+
+    const toolbar = playground.querySelector('.gpt-toolbar');
+    const gallery = playground.querySelector('.gpt-gallery-shell');
+    const inputImages = playground.querySelector('#gptInputImagesList');
+    const inputActions = playground.querySelector('.gpt-input-actions');
+    const settingsPanel = playground.querySelector('#gptSettingsPanel');
+    const gptSubmitBtn = playground.querySelector('#gptSubmitBtn');
+
+    if (DOM.gptUnifiedGalleryMount && toolbar) DOM.gptUnifiedGalleryMount.appendChild(toolbar);
+    if (DOM.gptUnifiedGalleryMount && gallery) DOM.gptUnifiedGalleryMount.appendChild(gallery);
+    if (DOM.gptUnifiedControlsMount && inputImages) DOM.gptUnifiedControlsMount.appendChild(inputImages);
+    if (DOM.gptUnifiedControlsMount && inputActions) DOM.gptUnifiedControlsMount.appendChild(inputActions);
+    if (DOM.gptUnifiedControlsMount && settingsPanel) DOM.gptUnifiedControlsMount.appendChild(settingsPanel);
+    if (gptSubmitBtn) gptSubmitBtn.hidden = true;
+
+    playground.dataset.unifiedMounted = '1';
+}
+
+function getUnifiedImageModel() {
+    return DOM.generationImageModelSelect ? DOM.generationImageModelSelect.value : 'nano-banana-pro';
+}
+
+function isUnifiedGptImageModel(model) {
+    const value = String(model || '').toLowerCase().trim();
+    return value === 'gpt-image' || value.startsWith('gpt-image') || value === 'dall-e-3';
+}
+
+function syncUnifiedImageMode() {
+    const isGpt = isUnifiedGptImageModel(getUnifiedImageModel());
+    document.querySelectorAll('.native-image-model-field').forEach((item) => {
+        item.hidden = isGpt;
+    });
+    if (DOM.gptUnifiedParamsPanel) DOM.gptUnifiedParamsPanel.hidden = !isGpt;
+    if (DOM.gptUnifiedGalleryMount) DOM.gptUnifiedGalleryMount.hidden = !isGpt;
+    if (DOM.generationPreviewContainer) DOM.generationPreviewContainer.hidden = isGpt;
+    if (DOM.downloadBtn) DOM.downloadBtn.hidden = isGpt;
+    if (DOM.clearBtn) DOM.clearBtn.hidden = isGpt;
+    if (DOM.generateBtn) DOM.generateBtn.innerHTML = '<i class="fas fa-magic"></i> 生成图像';
+}
+
+async function routeUnifiedImageGeneration() {
+    if (isUnifiedGptImageModel(getUnifiedImageModel())) {
+        if (typeof GPTImage !== 'undefined' && typeof GPTImage.submitFromUnifiedPage === 'function') {
+            await GPTImage.submitFromUnifiedPage();
+        }
+        return;
+    }
+    await generateImage('generic');
+}
+
+window.MatchDrawerImageHistory = {
+    add: addUnifiedImageHistory,
+    refresh: refreshImageHistory,
+    load: loadUnifiedImageHistory
+};
+
 function refreshActivities() {
     if (!DOM.activitiesList) return;
 
@@ -2476,20 +3195,29 @@ async function generateImage(mode = 'generic') {
     if (AppState.isLoading) return;
 
     if (!AppState.hasKey) {
-        ErrorHandler.handleValidationError('API设置', '请先在“API 设置”页面添加 Key');
-        showPage('api-keys');
+        const message = AppState.isAdmin
+            ? '请先在“API 设置”页面添加全局 Key'
+            : '管理员还没有配置全局 API Key，请联系管理员';
+        ErrorHandler.handleValidationError('API设置', message);
+        if (AppState.isAdmin) {
+            showPage('api-keys');
+        }
         return;
     }
 
     const prompt = context.promptInput.value;
     const textProvider = isPaperMode && DOM.generationTextProviderSelect ? DOM.generationTextProviderSelect.value : '';
-    const imageProvider = DOM.generationImageProviderSelect ? DOM.generationImageProviderSelect.value : 'grsai';
+    const imageProvider = isPaperMode
+        ? (DOM.paperImageProviderSelect ? DOM.paperImageProviderSelect.value : 'grsai')
+        : (DOM.generationImageProviderSelect ? DOM.generationImageProviderSelect.value : 'grsai');
     const provider = imageProvider || 'grsai';
     const textModel = isPaperMode && DOM.generationTextModelSelect ? DOM.generationTextModelSelect.value : '';
-    const imageModel = DOM.generationImageModelSelect ? DOM.generationImageModelSelect.value : 'nano-banana-pro';
-    const imageSize = DOM.generationImageSizeSelect
-        ? String(DOM.generationImageSizeSelect.value || '1K').toUpperCase().trim()
-        : '1K';
+    const imageModel = isPaperMode
+        ? (DOM.paperImageModelSelect ? DOM.paperImageModelSelect.value : 'nano-banana-pro')
+        : (DOM.generationImageModelSelect ? DOM.generationImageModelSelect.value : 'nano-banana-pro');
+    const imageSize = isPaperMode
+        ? (DOM.paperImageSizeSelect ? String(DOM.paperImageSizeSelect.value || '1K').toUpperCase().trim() : '1K')
+        : (DOM.generationImageSizeSelect ? String(DOM.generationImageSizeSelect.value || '1K').toUpperCase().trim() : '1K');
     const workflowExpMode = isPaperMode && DOM.generationExpModeSelect ? (DOM.generationExpModeSelect.value || '').trim() : 'vanilla';
     const workflowRetrieval = isPaperMode && DOM.generationRetrievalSelect ? (DOM.generationRetrievalSelect.value || '').trim() : '';
     const workflowCriticEnabled = isPaperMode && DOM.generationCriticEnabledCheck ? !!DOM.generationCriticEnabledCheck.checked : false;
@@ -2556,9 +3284,6 @@ async function generateImage(mode = 'generic') {
                 if (isPaperMode && DOM.progressText) {
                     DOM.progressText.textContent = `${progress}%`;
                 }
-                if (message) {
-                    console.log('生成进度:', message);
-                }
                 if (isPaperMode && payload && payload.id) {
                     updatePaperTaskId(payload.id);
                 }
@@ -2612,6 +3337,19 @@ async function generateImage(mode = 'generic') {
 
         if (!(error && error.isCanceled)) {
             ErrorHandler.handleApiError(error, context.successTitle);
+            if (!isPaperMode) {
+                addUnifiedImageHistory({
+                    id: `native-failed:${Date.now()}`,
+                    source: 'nano-banana-pro',
+                    model: imageModel || 'nano-banana-pro',
+                    prompt,
+                    status: 'failed',
+                    error: error.message || '图像生成失败',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    origin: 'native'
+                });
+            }
         }
 
         AppState.isLoading = false;
@@ -2776,6 +3514,21 @@ function handleImageGenerationComplete(resultData, mode = 'generic') {
         description: `完成时间：${new Date().toLocaleString('zh-CN', { hour12: false })}`,
         time: '刚刚'
     });
+
+    if (finalMode === 'generic') {
+        const result = resultData.results && resultData.results.length > 0 ? resultData.results[0] : {};
+        addUnifiedImageHistory({
+            id: `native:${resultData.id || Date.now()}`,
+            source: 'nano-banana-pro',
+            model: context.imageModelSelect ? context.imageModelSelect.value || 'nano-banana-pro' : 'nano-banana-pro',
+            prompt: context.promptInput ? context.promptInput.value.trim() : '',
+            status: 'completed',
+            imageUrl: result && result.url ? result.url : '',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            origin: 'native'
+        });
+    }
 }
 
 async function cancelCurrentGeneration() {
@@ -2827,6 +3580,18 @@ async function resetImageForm(mode = 'generic') {
         }
         if (DOM.generationTextModelSelect && DOM.generationTextModelSelect.options.length > 0) {
             DOM.generationTextModelSelect.selectedIndex = 0;
+        }
+        if (DOM.paperImageProviderSelect && DOM.paperImageProviderSelect.options.length > 0) {
+            DOM.paperImageProviderSelect.selectedIndex = 0;
+            localStorage.setItem('paperImageProvider', DOM.paperImageProviderSelect.value || 'grsai');
+            refreshGenerationModelOptions();
+        }
+        if (DOM.paperImageModelSelect && DOM.paperImageModelSelect.options.length > 0) {
+            DOM.paperImageModelSelect.selectedIndex = 0;
+        }
+        if (DOM.paperImageSizeSelect) {
+            DOM.paperImageSizeSelect.value = '1K';
+            localStorage.setItem('paperImageSize', '1K');
         }
         if (DOM.generationExpModeSelect) {
             DOM.generationExpModeSelect.value = '';
@@ -2884,8 +3649,13 @@ async function sendMessage() {
 
     // 检查API密钥
     if (!AppState.hasKey) {
-        ErrorHandler.handleValidationError('API设置', '请先在“API 设置”页面添加 Key');
-        showPage('api-keys');
+        const message = AppState.isAdmin
+            ? '请先在“API 设置”页面添加全局 Key'
+            : '管理员还没有配置全局 API Key，请联系管理员';
+        ErrorHandler.handleValidationError('API设置', message);
+        if (AppState.isAdmin) {
+            showPage('api-keys');
+        }
         return;
     }
 
@@ -3008,7 +3778,6 @@ async function sendMessageStreaming(messages, thinkingMessageId) {
             },
             () => {
                 // 流式完成
-                console.log('流式响应完成');
                 stream.close();
             }
         );
@@ -3361,6 +4130,14 @@ function loadSettings() {
     if (DOM.uiLanguageSelect) {
         DOM.uiLanguageSelect.value = AppState.language;
     }
+    renderAccountSecurity();
+    if (AppState.isAdmin) {
+        loadAdminUsers().catch((error) => {
+            ErrorHandler.handleApiError(error, '加载用户列表');
+        });
+    } else {
+        renderAdminUsersTable();
+    }
 }
 
 // 保存设置
@@ -3646,9 +4423,15 @@ function addPreviewSuccessStyles() {
 }
 
 // 初始化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     addNotificationStyles();
     addPreviewSuccessStyles();
+    if (window.MatchDrawerAuth && window.MatchDrawerAuth.ready) {
+        const ready = await window.MatchDrawerAuth.ready;
+        if (!ready) {
+            return;
+        }
+    }
     initApp();
 });
 

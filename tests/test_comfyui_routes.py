@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from src.utils.errors import AuthenticationError
+
 
 def build_test_client():
     tmpdir = tempfile.TemporaryDirectory()
@@ -23,10 +25,14 @@ def build_test_client():
     database_module.db_manager = None
 
     import app as app_module
+    from src.models.user import User
+    from src.services.auth import get_auth_service
 
     app_module = importlib.reload(app_module)
     app_module.app.config["TESTING"] = True
-    return tmpdir, app_module.app.test_client()
+    user = User.ensure_default_user()
+    token = get_auth_service().issue_token(int(user.id or 0), user.username)
+    return tmpdir, app_module.app.test_client(), {"Authorization": f"Bearer {token}"}
 
 
 class ComfyUIRoutesTest(unittest.TestCase):
@@ -40,10 +46,13 @@ class ComfyUIRoutesTest(unittest.TestCase):
                 "COMFYUI_RUNTIME_ACTIONS_ENABLED",
             )
         }
-        self.tmpdir, self.client = build_test_client()
+        self.tmpdir, self.client, self.auth_headers = build_test_client()
 
     def runtime_headers(self):
-        return {"X-ComfyUI-Runtime-Action": "confirm-local-runtime"}
+        return {
+            **self.auth_headers,
+            "X-ComfyUI-Runtime-Action": "confirm-local-runtime",
+        }
 
     def tearDown(self):
         for key, value in self.previous_env.items():
@@ -63,7 +72,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         runtime.status.return_value = {"state": "installed", "installed": True}
         runtime_factory.return_value = runtime
 
-        response = self.client.get("/api/comfyui/status")
+        response = self.client.get("/api/comfyui/status", headers=self.auth_headers)
         payload = response.get_json()
 
         self.assertEqual(response.status_code, 200)
@@ -94,7 +103,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         }
         runtime_factory.return_value = runtime
 
-        response = self.client.get("/api/comfyui/status")
+        response = self.client.get("/api/comfyui/status", headers=self.auth_headers)
         payload = response.get_json()
 
         self.assertEqual(response.status_code, 200)
@@ -109,7 +118,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         service.object_info.return_value = {"PreviewImage": {"input": {}}}
         service_factory.return_value = service
 
-        response = self.client.get("/api/comfyui/object-info")
+        response = self.client.get("/api/comfyui/object-info", headers=self.auth_headers)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["PreviewImage"], {"input": {}})
@@ -119,14 +128,20 @@ class ComfyUIRoutesTest(unittest.TestCase):
         workflow = {"1": {"class_type": "PreviewImage", "inputs": {}}}
         normalize_mock.return_value = {"nodes": [{"id": "1"}], "links": [], "nodeCount": 1, "linkCount": 0}
 
-        response = self.client.post("/api/comfyui/workflows/import", json={"workflow": workflow})
+        response = self.client.post(
+            "/api/comfyui/workflows/import",
+            json={"workflow": workflow},
+            headers=self.auth_headers,
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["nodeCount"], 1)
         normalize_mock.assert_called_once_with(workflow)
 
     def test_starter_workflow_route_returns_bundled_workflow(self):
-        response = self.client.get("/api/comfyui/workflows/starter/text-image")
+        response = self.client.get(
+            "/api/comfyui/workflows/starter/text-image", headers=self.auth_headers
+        )
         payload = response.get_json()
 
         self.assertEqual(response.status_code, 200)
@@ -134,7 +149,9 @@ class ComfyUIRoutesTest(unittest.TestCase):
         self.assertEqual(payload["workflow"]["1"]["class_type"], "GrsAINanoBananaTextImage")
 
     def test_starter_workflow_route_rejects_unknown_name(self):
-        response = self.client.get("/api/comfyui/workflows/starter/unknown")
+        response = self.client.get(
+            "/api/comfyui/workflows/starter/unknown", headers=self.auth_headers
+        )
 
         self.assertEqual(response.status_code, 404)
 
@@ -147,6 +164,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         response = self.client.post(
             "/api/comfyui/upload-image",
             json={"image": "data:image/png;base64,ZmFrZQ==", "filename": "input.png"},
+            headers=self.auth_headers,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -163,6 +181,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         response = self.client.post(
             "/api/comfyui/prompt",
             json={"workflow": workflow, "clientId": "client-1"},
+            headers=self.auth_headers,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -179,6 +198,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         response = self.client.post(
             "/api/comfyui/prompt",
             json={"workflow": workflow, "client_id": "client-2"},
+            headers=self.auth_headers,
         )
 
         self.assertEqual(response.status_code, 200)
@@ -191,7 +211,9 @@ class ComfyUIRoutesTest(unittest.TestCase):
         service.submit_prompt.return_value = {"prompt_id": "abc"}
         service_factory.return_value = service
 
-        response = self.client.post("/api/comfyui/prompt", json={"workflow": workflow})
+        response = self.client.post(
+            "/api/comfyui/prompt", json={"workflow": workflow}, headers=self.auth_headers
+        )
 
         self.assertEqual(response.status_code, 200)
         service.submit_prompt.assert_called_once_with(workflow, "matchdrawer")
@@ -208,7 +230,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         }
         service_factory.return_value = service
 
-        response = self.client.get("/api/comfyui/history/abc")
+        response = self.client.get("/api/comfyui/history/abc", headers=self.auth_headers)
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()["status"], "succeeded")
@@ -221,7 +243,10 @@ class ComfyUIRoutesTest(unittest.TestCase):
         service.view_image.return_value = {"bytes": b"image-bytes", "mimetype": "image/png"}
         service_factory.return_value = service
 
-        response = self.client.get("/api/comfyui/view?filename=out.png&subfolder=foo&type=output")
+        response = self.client.get(
+            "/api/comfyui/view?filename=out.png&subfolder=foo&type=output",
+            headers=self.auth_headers,
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, "image/png")
@@ -232,7 +257,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
     @patch("src.routes.comfyui_routes.get_comfyui_service")
     def test_view_route_requires_api_auth(self, service_factory, auth_factory):
         auth = MagicMock()
-        auth.is_authenticated.return_value = False
+        auth.require_auth.side_effect = AuthenticationError("请先登录")
         auth_factory.return_value = auth
         service = MagicMock()
         service_factory.return_value = service
@@ -240,7 +265,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         response = self.client.get("/api/comfyui/view?filename=out.png&type=output")
 
         self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.get_json()["error"], "请先登录")
+        self.assertIn("登录", response.get_json()["error"])
         service.view_image.assert_not_called()
 
     @patch("src.routes.comfyui_routes.get_comfyui_runtime_service")
@@ -287,7 +312,7 @@ class ComfyUIRoutesTest(unittest.TestCase):
         runtime = MagicMock()
         runtime_factory.return_value = runtime
 
-        response = self.client.post("/api/comfyui/runtime/install")
+        response = self.client.post("/api/comfyui/runtime/install", headers=self.auth_headers)
 
         self.assertEqual(response.status_code, 403)
         self.assertIn("confirmation", response.get_json()["error"])

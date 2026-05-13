@@ -8,7 +8,7 @@ from typing import Any, Callable
 from flask import jsonify, redirect, request, url_for
 
 from ..services.auth import get_auth_service
-from ..utils.errors import ApiError
+from ..utils.errors import ApiError, AuthenticationError
 
 
 def login_required(view_func: Callable) -> Callable:
@@ -17,8 +17,10 @@ def login_required(view_func: Callable) -> Callable:
     @wraps(view_func)
     def wrapper(*args, **kwargs) -> Any:
         auth_service = get_auth_service()
-        if not auth_service.is_authenticated():
-            return redirect(url_for("auth.login", next=request.path))
+        try:
+            auth_service.require_auth()
+        except AuthenticationError:
+            return redirect(url_for("auth.login", next=request.full_path.rstrip("?")))
         return view_func(*args, **kwargs)
 
     return wrapper
@@ -30,8 +32,10 @@ def api_login_required(view_func: Callable) -> Callable:
     @wraps(view_func)
     def wrapper(*args, **kwargs) -> Any:
         auth_service = get_auth_service()
-        if not auth_service.is_authenticated():
-            return jsonify({"error": "请先登录"}), 401
+        try:
+            auth_service.require_auth()
+        except AuthenticationError as exc:
+            return jsonify({"error": exc.message}), 401
         return view_func(*args, **kwargs)
 
     return wrapper

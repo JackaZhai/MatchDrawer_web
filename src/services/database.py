@@ -9,6 +9,7 @@ from typing import Optional
 
 from ..models.api_key import ApiKey
 from ..models.provider_config import ProviderConfig
+from ..models.remember_token import RememberToken
 from ..models.usage_stats import UsageStats
 from ..models.user import User
 
@@ -45,6 +46,7 @@ class DatabaseManager:
             ApiKey.init_table(conn)
             UsageStats.init_table(conn)
             ProviderConfig.init_table(conn)
+            RememberToken.init_table(conn)
             conn.commit()
 
     def execute_query(self, query: str, params: tuple = ()) -> int:

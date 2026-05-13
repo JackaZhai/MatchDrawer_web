@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Dict, List, Optional, Tuple
 
 from .base import BaseModel
@@ -47,7 +47,7 @@ class ApiKey(BaseModel):
         self.base_url = base_url or ""
         self.source = source or "custom"
         self.is_active = bool(is_active)
-        self.created_at = created_at or datetime.utcnow().isoformat()
+        self.created_at = created_at or datetime.now(timezone.utc).isoformat()
 
     @classmethod
     def get_table_name(cls) -> str:

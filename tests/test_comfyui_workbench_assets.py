@@ -16,6 +16,13 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
     def test_sidebar_and_page_shell_exist(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
 
+        self.assertIn('data-page="image-generation"', html)
+        self.assertIn('id="page-image-generation"', html)
+        self.assertNotIn('id="unifiedImageModelSelect"', html)
+        self.assertIn('id="generationImageModelSelect"', html)
+        self.assertIn('<option value="gpt-image-2">GPT Image</option>', html)
+        self.assertNotIn('data-page="gpt-image"', html)
+        self.assertNotIn('id="page-gpt-image"', html)
         self.assertIn('data-page="comfyui-workbench"', html)
         self.assertIn("生图工作台", html)
         self.assertIn('id="page-comfyui-workbench"', html)
@@ -57,7 +64,7 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
 
     def test_workbench_node_templates_are_generic(self):
         html = Path("templates/index.html").read_text(encoding="utf-8")
-        workbench_shell = html.split('id="page-comfyui-workbench"', 1)[1].split('id="page-gpt-image"', 1)[0]
+        workbench_shell = html.split('id="page-comfyui-workbench"', 1)[1].split('id="comfyPropertyPanel"', 1)[0]
 
         self.assertIn('data-template="text-image"', workbench_shell)
         self.assertIn('data-template="image-fusion"', workbench_shell)
@@ -105,6 +112,66 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("function normalizeNodePosition", workbench_js)
         self.assertIn("setCanvasDimensions", workbench_js)
         self.assertIn("overflow: auto", css)
+
+    def test_workbench_supports_draggable_nodes_and_port_connections(self):
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+        css = Path("static/css/comfyui-workbench.css").read_text(encoding="utf-8")
+
+        self.assertIn("function moveNode", workbench_js)
+        self.assertIn("function connectNodes", workbench_js)
+        self.assertIn("function beginNodeDrag", workbench_js)
+        self.assertIn("function handlePortClick", workbench_js)
+        self.assertIn("data-port-type", workbench_js)
+        self.assertIn("data-input-name", workbench_js)
+        self.assertIn("data-output-index", workbench_js)
+        self.assertIn("pointerdown", workbench_js)
+        self.assertIn("pointermove", workbench_js)
+        self.assertIn("pointerup", workbench_js)
+        self.assertIn(".comfy-port", css)
+        self.assertIn(".comfy-input-port", css)
+        self.assertIn(".comfy-output-port", css)
+        self.assertIn(".comfy-node-card.is-connecting", css)
+
+    def test_image_tools_keep_independent_model_settings(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        app_js = Path("static/js/app.js").read_text(encoding="utf-8")
+        workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
+        gpt_js = Path("static/js/gpt-image.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="comfyImageProviderSelect"', html)
+        self.assertIn('id="comfyImageModelInput"', html)
+        self.assertIn('id="comfyImageSizeSelect"', html)
+        self.assertIn("COMFY_SOURCE_KEY", workbench_js)
+        self.assertIn("loadWorkbenchImageSource", workbench_js)
+
+        self.assertNotIn('id="unifiedImageModelSelect"', html)
+        self.assertIn('id="generationImageModelSelect"', html)
+        self.assertIn('<option value="gpt-image-2">GPT Image</option>', html)
+        self.assertIn('id="gptUnifiedParamsPanel"', html)
+        self.assertIn('id="gptUnifiedControlsMount"', html)
+        self.assertIn('id="gptUnifiedGalleryMount"', html)
+        self.assertIn("mountUnifiedGptWorkspace", app_js)
+        self.assertIn("syncUnifiedImageMode", app_js)
+        self.assertIn("routeUnifiedImageGeneration", app_js)
+        self.assertIn("submitFromUnifiedPage", app_js)
+        self.assertIn("function isUnifiedGptMode", gpt_js)
+        self.assertIn("async function submitFromUnifiedPage", gpt_js)
+        self.assertIn('id="paperImageProviderSelect"', html)
+        self.assertIn('id="paperImageModelSelect"', html)
+        self.assertIn('id="paperImageSizeSelect"', html)
+        self.assertIn("paperImageProvider", app_js)
+        self.assertIn("paperImageSize", app_js)
+        self.assertNotIn("沿用“图像生成”页面", html)
+
+        self.assertNotIn("getCurrentComfyImageSource", app_js)
+        self.assertNotIn("notifyComfyImageSource", app_js)
+        self.assertNotIn("refreshImageSourceFromImagePage", app_js)
+        self.assertNotIn("getCurrentComfyImageSource", workbench_js)
+        self.assertNotIn("generationImageProvider", workbench_js)
+        self.assertNotIn("generationImageSize", workbench_js)
+        self.assertNotIn("getCurrentComfyImageSource", gpt_js)
+        self.assertNotIn("generationImageProvider", gpt_js)
+        self.assertNotIn("generationImageSize", gpt_js)
 
     def test_workbench_renders_editable_known_workflow_inputs(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")
@@ -571,6 +638,162 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertEqual(payload["workflowImage"], "uploaded/ref.png")
         self.assertIn("已上传参考图", payload["logText"])
         self.assertIn("uploaded/ref.png", payload["panelHtml"])
+
+    def test_dragging_and_connecting_nodes_updates_workflow_in_node(self):
+        script = textwrap.dedent(
+            r"""
+            const fs = require('fs');
+            const vm = require('vm');
+            const source = fs.readFileSync('static/js/comfyui-workbench.js', 'utf8');
+
+            function createElement(id) {
+                return {
+                    id,
+                    textContent: '',
+                    innerHTML: '',
+                    disabled: false,
+                    value: '',
+                    files: [],
+                    style: {},
+                    parentElement: { clientWidth: 960, clientHeight: 640 },
+                    classList: {
+                        toggle() {},
+                        remove() {},
+                    },
+                    addEventListener() {},
+                    setAttribute() {},
+                    querySelectorAll() { return []; },
+                    querySelector() { return null; },
+                };
+            }
+
+            const elements = {};
+            [
+                'comfyWorkbenchRoot',
+                'comfyConnectionStatus',
+                'comfyImportBtn',
+                'comfyImportInput',
+                'comfyInstallBtn',
+                'comfyStartBtn',
+                'comfyRunBtn',
+                'comfyCanvas',
+                'comfyLinkLayer',
+                'comfyEmptyState',
+                'comfyPropertyPanel',
+                'comfyRunLog',
+                'comfyResults',
+            ].forEach((id) => {
+                elements[id] = createElement(id);
+            });
+
+            const sandbox = {
+                console,
+                setTimeout,
+                clearTimeout,
+                document: {
+                    addEventListener() {},
+                    removeEventListener() {},
+                    getElementById(id) {
+                        return elements[id] || null;
+                    },
+                },
+                fetch(url) {
+                    if (url === '/api/comfyui/status') {
+                        return Promise.resolve({
+                            ok: true,
+                            json: () => Promise.resolve({ connection: { connected: true } }),
+                        });
+                    }
+                    throw new Error(`unexpected fetch ${url}`);
+                },
+            };
+            sandbox.window = {
+                setTimeout,
+                clearTimeout,
+            };
+
+            (async () => {
+                vm.runInNewContext(source, sandbox, { filename: 'comfyui-workbench.js' });
+                sandbox.window.ComfyUIWorkbench.init();
+
+                const state = sandbox.window.ComfyUIWorkbench._state;
+                state.workflow = {
+                    '1': {
+                        class_type: 'LoadImage',
+                        inputs: { image: 'input.png' },
+                        _meta: { title: 'Load reference' },
+                    },
+                    '2': {
+                        class_type: 'GrsAINanoBananaTextImage',
+                        inputs: { prompt: 'make an image', model: 'nano-banana-pro' },
+                        _meta: { title: 'Generate' },
+                    },
+                };
+                state.nodes = [{
+                    id: '1',
+                    title: 'Load reference',
+                    classType: 'LoadImage',
+                    kind: 'core',
+                    inputs: { image: 'input.png' },
+                    position: { x: 120, y: 120 },
+                }, {
+                    id: '2',
+                    title: 'Generate',
+                    classType: 'GrsAINanoBananaTextImage',
+                    kind: 'grsai',
+                    inputs: { prompt: 'make an image', model: 'nano-banana-pro' },
+                    position: { x: 340, y: 230 },
+                }];
+                state.links = [];
+
+                sandbox.window.ComfyUIWorkbench.moveNode('1', 420, 260);
+                sandbox.window.ComfyUIWorkbench.connectNodes({
+                    fromNode: '1',
+                    fromOutput: 0,
+                    toNode: '2',
+                    toInput: 'image1',
+                });
+                sandbox.window.ComfyUIWorkbench.connectNodes({
+                    fromNode: '1',
+                    fromOutput: 0,
+                    toNode: '2',
+                    toInput: 'image1',
+                });
+
+                console.log(JSON.stringify({
+                    nodePosition: state.nodes[0].position,
+                    workflowPosition: state.workflow['1']._meta.position,
+                    linkCount: state.links.length,
+                    firstLink: state.links[0],
+                    workflowInput: state.workflow['2'].inputs.image1,
+                    nodeInput: state.nodes[1].inputs.image1,
+                    logText: elements.comfyRunLog.textContent,
+                }));
+            })().catch((error) => {
+                console.error(error && error.stack ? error.stack : error);
+                process.exit(1);
+            });
+            """
+        )
+        result = subprocess.run(
+            ["node", "-e", script],
+            cwd=Path.cwd(),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout.strip().splitlines()[-1])
+        self.assertEqual(payload["nodePosition"], {"x": 420, "y": 260})
+        self.assertEqual(payload["workflowPosition"], {"x": 420, "y": 260})
+        self.assertEqual(payload["linkCount"], 1)
+        self.assertEqual(payload["firstLink"]["fromNode"], "1")
+        self.assertEqual(payload["firstLink"]["toNode"], "2")
+        self.assertEqual(payload["firstLink"]["toInput"], "image1")
+        self.assertEqual(payload["workflowInput"], ["1", 0])
+        self.assertEqual(payload["nodeInput"], ["1", 0])
+        self.assertIn("已连接", payload["logText"])
 
     def test_workbench_result_thumbnails_use_backend_view_route(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")

@@ -49,8 +49,10 @@ class BrandSurfacesTest(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("MatchDrawer", html)
-        self.assertIn("通用画图平台", html)
-        self.assertIn("PaperBanana 工作流", html)
+        self.assertIn('data-mode="login"', html)
+        self.assertIn('data-mode="register"', html)
+        self.assertNotIn("通用画图平台", html)
+        self.assertNotIn("PaperBanana 工作流", html)
 
     def test_dashboard_promotes_general_diagram_work_and_visible_paperbanana(self):
         response = self.client.get("/")

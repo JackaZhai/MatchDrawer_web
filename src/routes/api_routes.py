@@ -12,10 +12,16 @@ from ..services.api_key_service import get_api_key_service
 from ..services.auth import get_auth_service
 from ..services.paper_banana_service import get_paper_banana_service
 from ..services.provider_config_service import get_provider_config_service
-from .decorators import api_login_required, handle_api_errors, login_required
+from .decorators import api_login_required, handle_api_errors
 
 # 创建API蓝图
 api_bp = Blueprint("api", __name__, url_prefix="/api")
+
+
+def _require_admin_user_id() -> int:
+    auth_service = get_auth_service()
+    auth_service.require_admin()
+    return get_api_key_service().get_global_key_owner_id()
 
 
 @api_bp.get("/profile")
@@ -27,8 +33,9 @@ def profile() -> Any:
     api_key_service = get_api_key_service()
 
     user_id = auth_service.require_auth()
-    api_key_service.bootstrap_api_keys(user_id)
-    store = api_key_service.serialize_keys(user_id)
+    key_owner_id = api_key_service.get_global_key_owner_id()
+    api_key_service.bootstrap_api_keys(key_owner_id)
+    store = api_key_service.serialize_keys(key_owner_id)
     has_key = any(item.get("isActive") for item in (store.get("keys") or []))
     active_value = api_key_service.get_active_api_key_value(user_id, provider="grsai")
 
@@ -44,6 +51,13 @@ def profile() -> Any:
 
     return jsonify(
         {
+            "user": {
+                "id": user_id,
+                "username": auth_service.get_current_username() or "",
+                "role": getattr(auth_service.get_current_user(), "role", "user"),
+                "status": getattr(auth_service.get_current_user(), "status", "active"),
+            },
+            "isAdmin": getattr(auth_service.get_current_user(), "role", "user") == "admin",
             "hasKey": bool(has_key),
             "activeKeyMask": api_key_service.encryption.mask_key(active_value),
             "apiHost": config.api_host,
@@ -58,10 +72,9 @@ def profile() -> Any:
 @handle_api_errors
 def list_keys() -> Any:
     """列出API密钥"""
-    auth_service = get_auth_service()
     api_key_service = get_api_key_service()
 
-    user_id = auth_service.require_auth()
+    user_id = _require_admin_user_id()
     api_key_service.bootstrap_api_keys(user_id)
 
     return jsonify(api_key_service.serialize_keys(user_id))
@@ -72,10 +85,9 @@ def list_keys() -> Any:
 @handle_api_errors
 def add_key() -> Any:
     """添加API密钥"""
-    auth_service = get_auth_service()
     api_key_service = get_api_key_service()
 
-    user_id = auth_service.require_auth()
+    user_id = _require_admin_user_id()
     data = request.get_json(force=True, silent=True) or {}
     provider = (data.get("provider") or "grsai").strip()
     value = (data.get("value") or "").strip()
@@ -91,10 +103,9 @@ def add_key() -> Any:
 @handle_api_errors
 def delete_key(key_id: str) -> Any:
     """删除API密钥"""
-    auth_service = get_auth_service()
     api_key_service = get_api_key_service()
 
-    user_id = auth_service.require_auth()
+    user_id = _require_admin_user_id()
     result = api_key_service.delete_api_key(user_id, key_id)
     return jsonify(result)
 
@@ -104,10 +115,9 @@ def delete_key(key_id: str) -> Any:
 @handle_api_errors
 def set_active_key() -> Any:
     """设置活动API密钥"""
-    auth_service = get_auth_service()
     api_key_service = get_api_key_service()
 
-    user_id = auth_service.require_auth()
+    user_id = _require_admin_user_id()
     data = request.get_json(force=True, silent=True) or {}
     key_id = (data.get("id") or "").strip()
 
@@ -147,10 +157,9 @@ def model_status() -> Any:
 @handle_api_errors
 def provider_configs() -> Any:
     """List provider model defaults."""
-    auth_service = get_auth_service()
     svc = get_provider_config_service()
 
-    user_id = auth_service.require_auth()
+    user_id = _require_admin_user_id()
     return jsonify({"configs": svc.list_all(user_id)})
 
 
@@ -159,10 +168,9 @@ def provider_configs() -> Any:
 @handle_api_errors
 def upsert_provider_config() -> Any:
     """Upsert provider model defaults."""
-    auth_service = get_auth_service()
     svc = get_provider_config_service()
 
-    user_id = auth_service.require_auth()
+    user_id = _require_admin_user_id()
     data = request.get_json(force=True, silent=True) or {}
 
     provider = (data.get("provider") or "grsai").strip()
@@ -240,27 +248,16 @@ main_bp = Blueprint("main", __name__)
 
 
 @main_bp.get("/")
-@login_required
 def index() -> Any:
     """主页面"""
     from ..config import get_config
 
     config = get_config()
-    auth_service = get_auth_service()
-    api_key_service = get_api_key_service()
-
-    user_id = auth_service.get_current_user_id()
-    api_key_service.bootstrap_api_keys(user_id)
-    if user_id:
-        store = api_key_service.serialize_keys(int(user_id))
-        has_api_key = any(item.get("isActive") for item in (store.get("keys") or []))
-    else:
-        has_api_key = False
 
     return render_template(
         "index.html",
         api_host=config.api_host,
-        has_api_key=has_api_key,
+        has_api_key=False,
     )
 
 

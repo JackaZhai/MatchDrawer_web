@@ -5,50 +5,50 @@
 /* ===== 璁捐浠ょ墝 ===== */
 :root {
   /* 鑹插僵绯荤粺 - 娣辫壊涓婚 (鐜颁唬绠€绾︿腑寮? */
-  --color-bg-primary: #1b120e;
-  --color-bg-secondary: #241811;
-  --color-bg-tertiary: #312117;
-  --color-bg-surface: rgba(255, 236, 220, 0.04);
-  --color-bg-surface-hover: rgba(255, 236, 220, 0.08);
-  --color-bg-surface-active: rgba(255, 236, 220, 0.12);
-  --color-bg-surface-elevated: rgba(255, 236, 220, 0.09);
-  --color-bg-surface-highlight: rgba(185, 113, 63, 0.14);
-  --color-bg-surface-subtle: rgba(255, 236, 220, 0.02);
+  --color-bg-primary: #1f140e;
+  --color-bg-secondary: #28190f;
+  --color-bg-tertiary: #352217;
+  --color-bg-surface: rgba(255, 246, 235, 0.06);
+  --color-bg-surface-hover: rgba(255, 246, 235, 0.1);
+  --color-bg-surface-active: rgba(255, 246, 235, 0.14);
+  --color-bg-surface-elevated: rgba(255, 246, 235, 0.09);
+  --color-bg-surface-highlight: rgba(181, 105, 48, 0.18);
+  --color-bg-surface-subtle: rgba(255, 246, 235, 0.035);
 
-  --color-text-primary: #f7eee7;
-  --color-text-secondary: #e3d4c7;
-  --color-text-tertiary: #bba999;
-  --color-text-muted: #948170;
+  --color-text-primary: #fff6eb;
+  --color-text-secondary: #ead8c5;
+  --color-text-tertiary: #c7aa91;
+  --color-text-muted: #987b65;
 
-  --color-border: rgba(226, 184, 149, 0.24);
-  --color-border-hover: rgba(226, 184, 149, 0.38);
-  --color-border-focus: rgba(185, 113, 63, 0.45);
+  --color-border: rgba(224, 190, 158, 0.24);
+  --color-border-hover: rgba(224, 190, 158, 0.38);
+  --color-border-focus: rgba(181, 105, 48, 0.48);
 
   /* 鍝佺墝鑹?- 椹崱榫欒壊绯?*/
-  --color-primary: #b9713f; /* 椹崱榫欐祬钃濊壊 */
-  --color-primary-hover: #a56236;
-  --color-primary-active: #8f522b;
-  --color-primary-light: rgba(185, 113, 63, 0.16);
+  --color-primary: #a85f2d; /* brandy */
+  --color-primary-hover: #8f4e24;
+  --color-primary-active: #743a18;
+  --color-primary-light: rgba(168, 95, 45, 0.18);
 
-  --color-secondary: #d49a69; /* 椹崱榫欐煍绮夎壊 */
-  --color-secondary-hover: #bf8554;
-  --color-secondary-active: #a76f40;
+  --color-secondary: #c98a4a; /* caramel */
+  --color-secondary-hover: #ad7135;
+  --color-secondary-active: #905720;
 
-  --color-accent: #8f6a4f; /* 椹崱榫欐贰缁胯壊 */
-  --color-accent-hover: #7b5a42;
-  --color-accent-active: #694a35;
+  --color-accent: #6f563f; /* barrel oak */
+  --color-accent-hover: #5a432f;
+  --color-accent-active: #463323;
 
   /* 鐘舵€佽壊 */
-  --color-success: #77DD77; /* 鏌斿拰缁胯壊 */
-  --color-warning: #FFB347; /* 鏌斿拰姗欒壊 */
-  --color-error: #FF7F7F; /* 鏌斿拰鐝婄憵鑹?*/
-  --color-info: #77B5FE; /* 鏌斿拰钃濊壊 */
+  --color-success: #6f7d43;
+  --color-warning: #d48a2f;
+  --color-error: #a63a2a;
+  --color-info: #6d7d91;
 
   /* 娓愬彉 - 椹崱榫欒壊绯?*/
-  --gradient-primary: linear-gradient(135deg, #d49a69 0%, #8f522b 100%);
-  --gradient-secondary: linear-gradient(135deg, #e2b48e 0%, #b9713f 100%);
-  --gradient-accent: linear-gradient(135deg, #b48e72 0%, #7b5a42 100%);
-  --gradient-surface: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+  --gradient-primary: var(--color-primary);
+  --gradient-secondary: var(--color-secondary);
+  --gradient-accent: var(--color-accent);
+  --gradient-surface: var(--color-bg-surface);
 
   /* 闃村奖 */
   --shadow-sm: none;
@@ -105,35 +105,39 @@
   --transition-bounce: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* 鐜荤拑鎬佹晥鏋?*/
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(255, 246, 235, 0.06);
+  --glass-border: rgba(224, 190, 158, 0.2);
   --glass-blur: blur(20px);
   --glass-shadow: none;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 /* ===== 娴呰壊涓婚 ===== */
 [data-theme="light"] {
-  --color-bg-primary: #fcf7f2;
-  --color-bg-secondary: #f4e9df;
-  --color-bg-tertiary: #eadacb;
-  --color-bg-surface: rgba(66, 42, 28, 0.04);
-  --color-bg-surface-hover: rgba(66, 42, 28, 0.08);
-  --color-bg-surface-active: rgba(66, 42, 28, 0.12);
-  --color-bg-surface-elevated: rgba(66, 42, 28, 0.07);
-  --color-bg-surface-highlight: rgba(185, 113, 63, 0.14);
-  --color-bg-surface-subtle: rgba(66, 42, 28, 0.02);
+  --color-bg-primary: #f7f1e8;
+  --color-bg-secondary: #efe3d3;
+  --color-bg-tertiary: #e3d1bd;
+  --color-bg-surface: #fffaf3;
+  --color-bg-surface-hover: #f9efe3;
+  --color-bg-surface-active: #f1dfcb;
+  --color-bg-surface-elevated: #fffdf9;
+  --color-bg-surface-highlight: #f2dfca;
+  --color-bg-surface-subtle: #f8efe6;
 
-  --color-text-primary: #2d1d14;
-  --color-text-secondary: #4b3427;
-  --color-text-tertiary: #725644;
-  --color-text-muted: #8f7460;
+  --color-text-primary: #24160f;
+  --color-text-secondary: #5b4333;
+  --color-text-tertiary: #806650;
+  --color-text-muted: #9a8270;
 
-  --color-border: rgba(125, 84, 52, 0.2);
-  --color-border-hover: rgba(125, 84, 52, 0.34);
-  --color-border-focus: rgba(185, 113, 63, 0.35);
+  --color-border: #dbc7b5;
+  --color-border-hover: #c7a98f;
+  --color-border-focus: rgba(168, 95, 45, 0.48);
 
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-bg: rgba(255, 250, 243, 0.86);
+  --glass-border: rgba(219, 199, 181, 0.9);
 }
 
 /* ===== 鍩虹閲嶇疆 ===== */

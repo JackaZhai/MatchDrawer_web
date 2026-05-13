@@ -35,6 +35,11 @@ class Config:
 
         self.max_login_attempts = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
         self.lock_minutes = int(os.getenv("LOCK_MINUTES", "10"))
+        self.auth_token_ttl_seconds = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "86400"))
+        self.auth_remember_token_ttl_seconds = int(
+            os.getenv("AUTH_REMEMBER_TOKEN_TTL_SECONDS", str(30 * 24 * 60 * 60))
+        )
+        self.cookie_secure = self._get_bool_env("COOKIE_SECURE", default=False)
         self.max_reference_images = int(os.getenv("MAX_REFERENCE_IMAGES", "3"))
         self.max_reference_image_bytes = int(
             os.getenv("MAX_REFERENCE_IMAGE_BYTES", str(5 * 1024 * 1024))
@@ -52,13 +57,20 @@ class Config:
 
         return default
 
+    @staticmethod
+    def _get_bool_env(env_var: str, default: bool = False) -> bool:
+        value = os.getenv(env_var)
+        if value is None:
+            return default
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
     @property
     def draw_endpoint(self) -> str:
-        return f"{self.api_host.rstrip('/')}/v1/draw/completions"
+        return f"{self.api_host.rstrip('/')}/v1/api/generate"
 
     @property
     def result_endpoint(self) -> str:
-        return f"{self.api_host.rstrip('/')}/v1/draw/result"
+        return f"{self.api_host.rstrip('/')}/v1/api/result"
 
     @property
     def chat_endpoint(self) -> str:
@@ -75,6 +87,9 @@ class Config:
             "db_path": self.db_path,
             "max_login_attempts": self.max_login_attempts,
             "lock_minutes": self.lock_minutes,
+            "auth_token_ttl_seconds": self.auth_token_ttl_seconds,
+            "auth_remember_token_ttl_seconds": self.auth_remember_token_ttl_seconds,
+            "cookie_secure": self.cookie_secure,
             "max_reference_images": self.max_reference_images,
             "max_reference_image_bytes": self.max_reference_image_bytes,
         }

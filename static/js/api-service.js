@@ -10,18 +10,12 @@ const APIConfig = {
 
     // 支持的模型列表
     imageModels: [
-        { id: 'sora-image', name: 'Sora Image', description: 'grsai 生图模型' },
-        { id: 'gpt-image-1.5', name: 'GPT Image 1.5', description: '高质量图像模型' },
-        { id: 'nano-banana-fast', name: 'Nano Banana Fast', description: 'grsai 生图模型，速度优先' },
-        { id: 'nano-banana', name: 'Nano Banana', description: 'grsai 标准生图模型' },
-        { id: 'nano-banana-2', name: 'Nano Banana 2', description: 'grsai 新版通用生图模型' },
+        { id: 'gpt-image-2', name: 'GPT Image 2', description: 'grsai GPT 图像模型' },
         { id: 'nano-banana-pro', name: 'Nano Banana Pro', description: '默认模型，质量优先' },
         { id: 'nano-banana-pro-vt', name: 'Nano Banana Pro VT', description: 'grsai 生图模型' },
-        { id: 'nano-banana-2-cl', name: 'Nano Banana 2 CL', description: 'grsai 生图模型' },
-        { id: 'nano-banana-pro-cl', name: 'Nano Banana Pro CL', description: 'grsai 生图模型' },
-        { id: 'nano-banana-2-4k-cl', name: 'Nano Banana 2 4K CL', description: 'grsai 生图模型，4K 输出' },
-        { id: 'nano-banana-pro-vip', name: 'Nano Banana Pro VIP', description: 'grsai 高质量生图模型' },
-        { id: 'nano-banana-pro-4k-vip', name: 'Nano Banana Pro 4K VIP', description: 'grsai 高质量 4K 生图模型' }
+        { id: 'nano-banana-2', name: 'Nano Banana 2', description: 'grsai 新版通用生图模型' },
+        { id: 'nano-banana-fast', name: 'Nano Banana Fast', description: 'grsai 生图模型，速度优先' },
+        { id: 'nano-banana', name: 'Nano Banana', description: 'grsai 标准生图模型' },
     ],
 
     chatModels: [
@@ -42,7 +36,11 @@ const APIConfig = {
         { id: '2:3', name: '2:3', description: '照片竖屏' },
         { id: '5:4', name: '5:4', description: '特殊比例' },
         { id: '4:5', name: '4:5', description: '特殊竖屏' },
-        { id: '21:9', name: '21:9', description: '超宽屏' }
+        { id: '21:9', name: '21:9', description: '超宽屏' },
+        { id: '1:4', name: '1:4', description: 'Nano Banana 2 扩展比例' },
+        { id: '4:1', name: '4:1', description: 'Nano Banana 2 扩展比例' },
+        { id: '1:8', name: '1:8', description: 'Nano Banana 2 扩展比例' },
+        { id: '8:1', name: '8:1', description: 'Nano Banana 2 扩展比例' }
     ],
 
     // 图像尺寸选项
@@ -64,7 +62,8 @@ const ChatProviderConfig = {
 // API 服务类
 class APIService {
     constructor() {
-        this.apiKey = localStorage.getItem('apiKey') || null;
+        localStorage.removeItem('apiKey');
+        this.apiKey = null;
         this.apiHost = APIConfig.host;
         const storedImageModel = localStorage.getItem('activeImageModel') || '';
         const storedChatModel = localStorage.getItem('activeChatModel') || '';
@@ -83,8 +82,8 @@ class APIService {
 
     // 设置 API 密钥
     setApiKey(apiKey) {
-        this.apiKey = apiKey;
-        localStorage.setItem('apiKey', apiKey);
+        this.apiKey = apiKey || null;
+        localStorage.removeItem('apiKey');
     }
 
     // 设置 API 主机
@@ -104,12 +103,12 @@ class APIService {
         this.chatApiKey = key || null;
         localStorage.setItem('chatApiKey', key || '');
     }
-    getHeaders() {
+    getHeaders(isLocal = false) {
         const headers = {
             'Content-Type': 'application/json'
         };
 
-        if (this.apiKey) {
+        if (!isLocal && this.apiKey) {
             headers['Authorization'] = `Bearer ${this.apiKey}`;
         }
 
@@ -126,7 +125,7 @@ class APIService {
         const url = isLocal ? endpoint : `${this.apiHost}${endpoint}`;
         const options = {
             method,
-            headers: this.getHeaders(),
+            headers: this.getHeaders(isLocal),
             credentials: 'same-origin'
         };
 
@@ -578,8 +577,4 @@ const apiService = new APIService();
 // 导出到全局
 window.APIService = apiService;
 window.APIConfig = APIConfig;
-
-
-
-
 

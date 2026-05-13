@@ -3,7 +3,7 @@ ComfyUI workflow normalization helpers.
 """
 
 from copy import deepcopy
-from typing import Any
+from typing import Any, Union
 
 from ..utils.errors import ValidationError
 
@@ -33,7 +33,7 @@ def normalize_workflow(workflow: dict[str, Any]) -> dict[str, Any]:
                 "title": _node_title(node, class_type),
                 "kind": _node_kind(class_type),
                 "inputs": deepcopy(inputs),
-                "position": _default_node_position(index),
+                "position": _node_position(node, index),
             }
         )
         links.extend(_extract_links(node_id, inputs))
@@ -81,7 +81,7 @@ def _validate_workflow_node(node: Any) -> str:
     return class_type
 
 
-def _node_sort_key(node_id: str) -> tuple[int, int | str]:
+def _node_sort_key(node_id: str) -> tuple[int, Union[int, str]]:
     try:
         return (0, int(node_id))
     except (TypeError, ValueError):
@@ -90,6 +90,17 @@ def _node_sort_key(node_id: str) -> tuple[int, int | str]:
 
 def _default_node_position(index: int) -> dict[str, int]:
     return {"x": 120 + index * 220, "y": 120 + (index % 3) * 110}
+
+
+def _node_position(node: dict[str, Any], index: int) -> dict[str, int]:
+    meta = node.get("_meta", {})
+    position = meta.get("position") if isinstance(meta, dict) else None
+    if isinstance(position, dict):
+        x = position.get("x")
+        y = position.get("y")
+        if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+            return {"x": int(x), "y": int(y)}
+    return _default_node_position(index)
 
 
 def _node_title(node: dict[str, Any], class_type: str) -> str:

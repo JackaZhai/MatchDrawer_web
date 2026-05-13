@@ -13,6 +13,9 @@
         running: false,
         installingRuntime: false,
         startingRuntime: false,
+        pendingConnection: null,
+        drag: null,
+        imageSource: null,
     };
 
     const KNOWN_GRSAI_INPUTS = [
@@ -29,10 +32,25 @@
 
     const NODE_CARD = {
         width: 176,
-        height: 76,
+        height: 104,
         padding: 96,
         minWidth: 720,
         minHeight: 480,
+    };
+
+    const IMAGE_SOURCE_DEFAULTS = {
+        provider: 'grsai',
+        imageProvider: 'grsai',
+        model: 'nano-banana-pro',
+        imageModel: 'nano-banana-pro',
+        imageSize: '1K',
+    };
+    const COMFY_SOURCE_KEY = 'comfyui_workbench_image_source_v1';
+
+    const LINK_INPUT_PORTS = {
+        GrsAINanoBananaTextImage: ['image1', 'image2'],
+        PreviewImage: ['images'],
+        SaveImage: ['images'],
     };
 
     const API = {
@@ -66,6 +84,138 @@
         DOM.panel = document.getElementById('comfyPropertyPanel');
         DOM.log = document.getElementById('comfyRunLog');
         DOM.results = document.getElementById('comfyResults');
+        DOM.imageSourceSummary = document.getElementById('comfyImageSourceSummary');
+        DOM.sourceProvider = document.getElementById('comfyImageProviderSelect');
+        DOM.sourceModel = document.getElementById('comfyImageModelInput');
+        DOM.sourceSize = document.getElementById('comfyImageSizeSelect');
+    }
+
+    function normalizeImageSource(source) {
+        const raw = source || {};
+        const provider = String(raw.provider || raw.imageProvider || 'grsai').trim() || IMAGE_SOURCE_DEFAULTS.provider;
+        const imageModel = String(raw.imageModel || raw.model || '').trim() || String(raw.imageModelHint || '').trim() || IMAGE_SOURCE_DEFAULTS.imageModel;
+        const sizeRaw = String(raw.imageSize || '').trim().toUpperCase() || '';
+        const imageSize = ['1K', '2K', '4K'].includes(sizeRaw) ? sizeRaw : IMAGE_SOURCE_DEFAULTS.imageSize;
+
+        return {
+            provider,
+            imageProvider: provider,
+            model: imageModel,
+            imageModel,
+            imageSize,
+        };
+    }
+
+    function loadWorkbenchImageSource() {
+        if (typeof localStorage === 'undefined') {
+            return Object.assign({}, IMAGE_SOURCE_DEFAULTS);
+        }
+        try {
+            const raw = localStorage.getItem(COMFY_SOURCE_KEY);
+            if (raw) {
+                return normalizeImageSource(JSON.parse(raw));
+            }
+        } catch (error) {
+            console.warn('读取生图工作台模型配置失败:', error);
+        }
+        return Object.assign({}, IMAGE_SOURCE_DEFAULTS);
+    }
+
+    function saveWorkbenchImageSource(source) {
+        if (typeof localStorage === 'undefined') return;
+        const normalized = normalizeImageSource(source || State.imageSource || IMAGE_SOURCE_DEFAULTS);
+        localStorage.setItem(COMFY_SOURCE_KEY, JSON.stringify(normalized));
+    }
+
+    function syncImageSourceControls(source) {
+        const normalized = normalizeImageSource(source || State.imageSource || IMAGE_SOURCE_DEFAULTS);
+        if (DOM.sourceProvider) {
+            const hasProviderOption = Array.from(DOM.sourceProvider.options || [])
+                .some((option) => option.value === normalized.provider);
+            if (!hasProviderOption) {
+                const option = document.createElement('option');
+                option.value = normalized.provider;
+                option.textContent = normalized.provider;
+                DOM.sourceProvider.appendChild(option);
+            }
+            DOM.sourceProvider.value = normalized.provider;
+        }
+        if (DOM.sourceModel) DOM.sourceModel.value = normalized.imageModel;
+        if (DOM.sourceSize) DOM.sourceSize.value = normalized.imageSize;
+    }
+
+    function readWorkbenchImageSourceFromControls() {
+        return normalizeImageSource({
+            provider: DOM.sourceProvider ? DOM.sourceProvider.value : (State.imageSource && State.imageSource.provider),
+            imageModel: DOM.sourceModel ? DOM.sourceModel.value : (State.imageSource && State.imageSource.imageModel),
+            imageSize: DOM.sourceSize ? DOM.sourceSize.value : (State.imageSource && State.imageSource.imageSize),
+        });
+    }
+
+    function renderImageSourceSummary(source = null) {
+        if (!DOM.imageSourceSummary) return;
+        const normalized = normalizeImageSource(source || State.imageSource || IMAGE_SOURCE_DEFAULTS);
+        DOM.imageSourceSummary.textContent = `当前工作台模型：${normalized.provider} / ${normalized.imageModel} / ${normalized.imageSize}`;
+    }
+
+    function applySourceToGrsaiNode(node, source) {
+        if (!node || node.classType !== 'GrsAINanoBananaTextImage') return false;
+        const workflowInputs = ensureWorkflowInputs(node.id);
+        if (!workflowInputs) return false;
+
+        const normalizedSource = normalizeImageSource(source);
+        const providerKeyExists = Object.prototype.hasOwnProperty.call(workflowInputs, 'provider');
+        const changed = (
+            workflowInputs.model !== normalizedSource.imageModel
+            || workflowInputs.imageSize !== normalizedSource.imageSize
+            || (providerKeyExists && workflowInputs.provider !== normalizedSource.provider)
+        );
+
+        workflowInputs.model = normalizedSource.imageModel;
+        workflowInputs.imageSize = normalizedSource.imageSize;
+        if (Object.prototype.hasOwnProperty.call(workflowInputs, 'provider')) {
+            workflowInputs.provider = normalizedSource.provider;
+        }
+
+        if (!node.inputs || typeof node.inputs !== 'object') {
+            node.inputs = {};
+        }
+        node.inputs.model = normalizedSource.imageModel;
+        node.inputs.imageSize = normalizedSource.imageSize;
+        if (Object.prototype.hasOwnProperty.call(node.inputs, 'provider')) {
+            node.inputs.provider = normalizedSource.provider;
+        }
+
+        return changed;
+    }
+
+    function applyImageSourceToWorkflow(source = null) {
+        const normalized = normalizeImageSource(source || readWorkbenchImageSourceFromControls());
+        let changed = false;
+        State.imageSource = normalized;
+        syncImageSourceControls(normalized);
+        saveWorkbenchImageSource(normalized);
+
+        if (!State.workflow || !Array.isArray(State.nodes)) {
+            renderImageSourceSummary(normalized);
+            return { source: normalized, changed: false };
+        }
+
+        State.nodes.forEach((node) => {
+            changed = applySourceToGrsaiNode(node, normalized) || changed;
+        });
+
+        renderImageSourceSummary(normalized);
+        if (changed) {
+            if (DOM.panel) {
+                renderPropertyPanel();
+            }
+        }
+
+        return {
+            source: normalized,
+            changed,
+        };
     }
 
     async function requestJson(url, options = {}) {
@@ -137,6 +287,66 @@
         return 'Custom Node';
     }
 
+    function uniqueValues(values) {
+        return Array.from(new Set(values.filter((value) => value !== null && value !== undefined && value !== '')));
+    }
+
+    function workflowNode(nodeId) {
+        return State.workflow && State.workflow[nodeId] && typeof State.workflow[nodeId] === 'object'
+            ? State.workflow[nodeId]
+            : null;
+    }
+
+    function ensureWorkflowInputs(nodeId) {
+        const node = workflowNode(nodeId);
+        if (!node) return null;
+        node.inputs = node.inputs && typeof node.inputs === 'object' ? node.inputs : {};
+        return node.inputs;
+    }
+
+    function ensureWorkflowMeta(nodeId) {
+        const node = workflowNode(nodeId);
+        if (!node) return null;
+        node._meta = node._meta && typeof node._meta === 'object' ? node._meta : {};
+        return node._meta;
+    }
+
+    function inputPortNames(node) {
+        const inputs = node && node.inputs && typeof node.inputs === 'object' ? node.inputs : {};
+        const linkedInputs = Object.entries(inputs)
+            .filter((entry) => Array.isArray(entry[1]))
+            .map((entry) => entry[0]);
+        const candidates = LINK_INPUT_PORTS[node && node.classType] || [];
+        return uniqueValues([...linkedInputs, ...candidates]);
+    }
+
+    function outputPortIndexes(node) {
+        const nodeId = node && node.id;
+        const indexes = State.links
+            .filter((link) => link.fromNode === nodeId)
+            .map((link) => Number.isFinite(Number(link.fromOutput)) ? Number(link.fromOutput) : 0);
+        return uniqueValues([0, ...indexes]).sort((a, b) => a - b);
+    }
+
+    function nodeHeight(node) {
+        const portRows = Math.max(inputPortNames(node).length, outputPortIndexes(node).length, 1);
+        return Math.max(NODE_CARD.height, 58 + portRows * 24);
+    }
+
+    function portY(index) {
+        return 42 + index * 24;
+    }
+
+    function inputPortY(node, inputName) {
+        const index = Math.max(0, inputPortNames(node).indexOf(inputName));
+        return portY(index);
+    }
+
+    function outputPortY(node, outputIndex = 0) {
+        const index = Math.max(0, outputPortIndexes(node).indexOf(Number(outputIndex) || 0));
+        return portY(index);
+    }
+
     function layoutViewport() {
         const shell = DOM.canvas ? DOM.canvas.parentElement : null;
         const shellWidth = shell ? shell.clientWidth : 0;
@@ -157,7 +367,7 @@
                 minX: Math.min(result.minX, position.x),
                 minY: Math.min(result.minY, position.y),
                 maxX: Math.max(result.maxX, position.x + NODE_CARD.width),
-                maxY: Math.max(result.maxY, position.y + NODE_CARD.height),
+                maxY: Math.max(result.maxY, position.y + nodeHeight(node)),
             };
         }, {
             minX: Infinity,
@@ -208,6 +418,7 @@
         State.selectedNodeId = null;
         State.promptId = null;
         renderResults([]);
+        applyImageSourceToWorkflow();
         renderCanvas();
         renderPropertyPanel();
         setLog(`已载入 ${sourceLabel}：${payload.nodeCount || State.nodes.length} 个节点`);
@@ -230,6 +441,34 @@
         }
     }
 
+    function inputPortMarkup(node) {
+        return inputPortNames(node).map((inputName, index) => `
+            <button type="button"
+                    class="comfy-port comfy-input-port"
+                    data-port-type="input"
+                    data-port-node-id="${escapeHtml(node.id)}"
+                    data-input-name="${escapeHtml(inputName)}"
+                    style="top:${portY(index)}px"
+                    title="输入 ${escapeHtml(inputName)}">
+                <span>${escapeHtml(inputName)}</span>
+            </button>
+        `).join('');
+    }
+
+    function outputPortMarkup(node) {
+        return outputPortIndexes(node).map((outputIndex, index) => `
+            <button type="button"
+                    class="comfy-port comfy-output-port"
+                    data-port-type="output"
+                    data-port-node-id="${escapeHtml(node.id)}"
+                    data-output-index="${escapeHtml(outputIndex)}"
+                    style="top:${portY(index)}px"
+                    title="输出 ${escapeHtml(outputIndex)}">
+                <span>${escapeHtml(outputIndex)}</span>
+            </button>
+        `).join('');
+    }
+
     function renderCanvas() {
         if (!DOM.canvas) return;
 
@@ -245,19 +484,30 @@
             const position = normalizeNodePosition(node, index, viewport);
             const selected = node.id === State.selectedNodeId ? ' is-selected' : '';
             const kindClass = nodeKindClass(node.kind);
+            const connecting = State.pendingConnection && State.pendingConnection.nodeId === node.id ? ' is-connecting' : '';
             return `
-                <button type="button"
-                        class="comfy-node-card comfy-node-${kindClass}${selected}"
-                        data-node-id="${escapeHtml(node.id)}"
-                        style="left:${position.x}px;top:${position.y}px">
-                    <span class="comfy-node-title">${escapeHtml(node.title || node.classType || node.id)}</span>
-                    <span class="comfy-node-meta">#${escapeHtml(node.id)} · ${escapeHtml(node.classType || 'Unknown')}</span>
-                </button>
+                <div role="button"
+                     tabindex="0"
+                     class="comfy-node-card comfy-node-${kindClass}${selected}${connecting}"
+                     data-node-id="${escapeHtml(node.id)}"
+                     style="left:${position.x}px;top:${position.y}px;height:${nodeHeight(node)}px">
+                    ${inputPortMarkup(node)}
+                    <div class="comfy-node-body">
+                        <span class="comfy-node-title">${escapeHtml(node.title || node.classType || node.id)}</span>
+                        <span class="comfy-node-meta">#${escapeHtml(node.id)} · ${escapeHtml(node.classType || 'Unknown')}</span>
+                    </div>
+                    ${outputPortMarkup(node)}
+                </div>
             `;
         }).join('');
 
         DOM.canvas.querySelectorAll('[data-node-id]').forEach((element) => {
             element.addEventListener('click', () => selectNode(element.getAttribute('data-node-id')));
+            element.addEventListener('pointerdown', beginNodeDrag);
+        });
+        DOM.canvas.querySelectorAll('[data-port-type]').forEach((element) => {
+            element.addEventListener('pointerdown', (event) => event.stopPropagation());
+            element.addEventListener('click', handlePortClick);
         });
         renderLinks(viewport);
     }
@@ -273,10 +523,10 @@
 
             const from = normalizeNodePosition(source.node, source.index, viewport);
             const to = normalizeNodePosition(target.node, target.index, viewport);
-            const x1 = from.x + 176;
-            const y1 = from.y + 42;
+            const x1 = from.x + NODE_CARD.width;
+            const y1 = from.y + outputPortY(source.node, link.fromOutput);
             const x2 = to.x;
-            const y2 = to.y + 42;
+            const y2 = to.y + inputPortY(target.node, link.toInput);
             const curve = Math.max(40, Math.abs(x2 - x1) / 2);
             const selected = link.fromNode === State.selectedNodeId || link.toNode === State.selectedNodeId ? ' is-selected' : '';
             return `<path class="comfy-link-path${selected}" data-link-index="${index}" d="M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}" />`;
@@ -291,6 +541,203 @@
 
     function selectedNode() {
         return State.nodes.find((node) => node.id === State.selectedNodeId) || null;
+    }
+
+    function findNode(nodeId) {
+        return State.nodes.find((node) => node.id === nodeId) || null;
+    }
+
+    function findNodeIndex(nodeId) {
+        return State.nodes.findIndex((node) => node.id === nodeId);
+    }
+
+    function syncNodePositionToWorkflow(nodeId, position) {
+        const meta = ensureWorkflowMeta(nodeId);
+        if (meta) {
+            meta.position = {
+                x: position.x,
+                y: position.y,
+            };
+        }
+    }
+
+    function moveNode(nodeId, x, y, options = {}) {
+        const node = findNode(nodeId);
+        if (!node) return null;
+
+        const position = {
+            x: Math.round(Number(x) || 0),
+            y: Math.round(Number(y) || 0),
+        };
+        node.position = position;
+        syncNodePositionToWorkflow(nodeId, position);
+
+        if (options.render !== false) {
+            renderCanvas();
+            renderPropertyPanel();
+        } else {
+            renderLinks();
+        }
+        return position;
+    }
+
+    function syncNodeInputToWorkflow(nodeId, inputName, value) {
+        const inputs = ensureWorkflowInputs(nodeId);
+        if (inputs) {
+            inputs[inputName] = Array.isArray(value) ? [...value] : value;
+        }
+    }
+
+    function connectNodes(connection) {
+        if (!connection || !connection.fromNode || !connection.toNode || !connection.toInput) {
+            return null;
+        }
+        if (connection.fromNode === connection.toNode) {
+            setLog('不能连接到同一个节点');
+            State.pendingConnection = null;
+            renderCanvas();
+            return null;
+        }
+
+        const source = findNode(connection.fromNode);
+        const target = findNode(connection.toNode);
+        if (!source || !target) return null;
+
+        const fromOutput = Number.isFinite(Number(connection.fromOutput)) ? Number(connection.fromOutput) : 0;
+        const linkValue = [connection.fromNode, fromOutput];
+        target.inputs = target.inputs && typeof target.inputs === 'object' ? target.inputs : {};
+        target.inputs[connection.toInput] = linkValue;
+        syncNodeInputToWorkflow(connection.toNode, connection.toInput, linkValue);
+
+        State.links = State.links
+            .filter((link) => !(link.toNode === connection.toNode && link.toInput === connection.toInput));
+        const link = {
+            fromNode: connection.fromNode,
+            fromOutput,
+            toNode: connection.toNode,
+            toInput: connection.toInput,
+        };
+        State.links.push(link);
+        State.pendingConnection = null;
+        renderCanvas();
+        renderPropertyPanel();
+        setLog(`已连接 #${connection.fromNode} → #${connection.toNode}.${connection.toInput}`);
+        return link;
+    }
+
+    function startConnection(nodeId, outputIndex = 0) {
+        State.pendingConnection = {
+            nodeId,
+            outputIndex: Number.isFinite(Number(outputIndex)) ? Number(outputIndex) : 0,
+        };
+        setLog(`选择目标输入端口连接 #${nodeId}`);
+        renderCanvas();
+    }
+
+    function handlePortClick(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const port = event.currentTarget;
+        const portType = port.getAttribute('data-port-type');
+        const nodeId = port.getAttribute('data-port-node-id');
+        if (portType === 'output') {
+            startConnection(nodeId, port.getAttribute('data-output-index') || 0);
+            return;
+        }
+
+        if (portType === 'input') {
+            const inputName = port.getAttribute('data-input-name');
+            if (!State.pendingConnection) {
+                setLog('先点击一个输出端口，再点击输入端口');
+                return;
+            }
+            connectNodes({
+                fromNode: State.pendingConnection.nodeId,
+                fromOutput: State.pendingConnection.outputIndex,
+                toNode: nodeId,
+                toInput: inputName,
+            });
+        }
+    }
+
+    function updateDraggedNodeElement() {
+        const drag = State.drag;
+        if (!drag || !drag.element) return;
+        const node = findNode(drag.nodeId);
+        const index = findNodeIndex(drag.nodeId);
+        if (!node || index < 0) return;
+        const viewport = State.viewport || layoutViewport();
+        const position = normalizeNodePosition(node, index, viewport);
+        drag.element.style.left = `${position.x}px`;
+        drag.element.style.top = `${position.y}px`;
+    }
+
+    function handleNodeDrag(event) {
+        const drag = State.drag;
+        if (!drag) return;
+
+        const dx = event.clientX - drag.startClientX;
+        const dy = event.clientY - drag.startClientY;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+            drag.moved = true;
+        }
+        moveNode(drag.nodeId, drag.startX + dx, drag.startY + dy, { render: false });
+        updateDraggedNodeElement();
+        event.preventDefault();
+    }
+
+    function endNodeDrag(event) {
+        const drag = State.drag;
+        if (!drag) return;
+
+        if (typeof document.removeEventListener === 'function') {
+            document.removeEventListener('pointermove', handleNodeDrag);
+            document.removeEventListener('pointerup', endNodeDrag);
+        }
+        State.drag = null;
+        if (drag.element && typeof drag.element.releasePointerCapture === 'function') {
+            drag.element.releasePointerCapture(drag.pointerId);
+        }
+        if (drag.moved) {
+            renderCanvas();
+        } else {
+            selectNode(drag.nodeId);
+        }
+        event.preventDefault();
+    }
+
+    function beginNodeDrag(event) {
+        if (event.button !== undefined && event.button !== 0) return;
+        const target = event.target;
+        if (target && typeof target.closest === 'function' && target.closest('[data-port-type]')) {
+            return;
+        }
+
+        const element = event.currentTarget;
+        const nodeId = element.getAttribute('data-node-id');
+        const node = findNode(nodeId);
+        if (!node) return;
+
+        const position = nodePosition(node);
+        State.drag = {
+            nodeId,
+            element,
+            pointerId: event.pointerId,
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            startX: position.x,
+            startY: position.y,
+            moved: false,
+        };
+        if (typeof element.setPointerCapture === 'function') {
+            element.setPointerCapture(event.pointerId);
+        }
+        if (typeof document.addEventListener === 'function') {
+            document.addEventListener('pointermove', handleNodeDrag);
+            document.addEventListener('pointerup', endNodeDrag);
+        }
+        event.preventDefault();
     }
 
     function isLoadImageNode(node) {
@@ -636,6 +1083,7 @@
 
         setRunning(true);
         renderResults([]);
+        applyImageSourceToWorkflow();
         setLog('正在提交 workflow');
 
         try {
@@ -683,6 +1131,13 @@
                 runWorkflow();
             });
         }
+        [DOM.sourceProvider, DOM.sourceModel, DOM.sourceSize].forEach((element) => {
+            if (!element) return;
+            const eventName = element === DOM.sourceModel ? 'input' : 'change';
+            element.addEventListener(eventName, () => {
+                applyImageSourceToWorkflow(readWorkbenchImageSourceFromControls());
+            });
+        });
         if (DOM.root) {
             DOM.root.querySelectorAll('[data-template]').forEach((button) => {
                 button.addEventListener('click', () => loadTemplateWorkflow(button.getAttribute('data-template')));
@@ -694,7 +1149,10 @@
         cacheDom();
         if (!DOM.root || State.initialized) return;
         State.initialized = true;
+        State.imageSource = loadWorkbenchImageSource();
+        syncImageSourceControls(State.imageSource);
         bindEvents();
+        renderImageSourceSummary(State.imageSource);
         refreshStatus();
     }
 
@@ -705,6 +1163,10 @@
         startRuntime,
         loadTemplateWorkflow,
         uploadImageForSelectedNode,
+        setWorkbenchImageSource: applyImageSourceToWorkflow,
+        loadWorkbenchImageSource,
+        moveNode,
+        connectNodes,
         runWorkflow,
         pollHistory,
         _state: State,

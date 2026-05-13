@@ -9,13 +9,14 @@
     // ===== 常量 =====
     const STORAGE_KEY = 'gpt_image_tasks_v1';
     const SETTINGS_KEY = 'gpt_image_settings_v1';
+    const GPT_SOURCE_KEY = 'gpt_image_source_v1';
     const MAX_TASKS = 200;
     const API_MAX_IMAGES = 16;
     const POLL_INTERVAL_MS = 3000;
 
     // 默认参数
     const DEFAULT_PARAMS = {
-        model: 'gpt-image-1',
+        model: 'gpt-image-2',
         size: '1024x1024',
         quality: 'high',
         output_format: 'png',
@@ -45,17 +46,29 @@
     ];
 
     const MODEL_OPTIONS = [
-        { value: 'gpt-image-1', label: 'GPT Image 1' },
-        { value: 'dall-e-3', label: 'DALL-E 3' },
-        { value: 'gpt-image-1.5', label: 'GPT Image 1.5' },
+        { value: 'gpt-image-2', label: 'GPT Image 2' },
     ];
+
+    const GPT_SOURCE_DEFAULTS = {
+        provider: 'openai',
+        model: DEFAULT_PARAMS.model,
+        size: DEFAULT_PARAMS.size,
+        quality: DEFAULT_PARAMS.quality,
+    };
+    const initialImageSource = loadGptImageSource();
 
     // ===== 状态 =====
     const State = {
         tasks: [],
         inputImages: [],
         prompt: '',
-        params: { ...DEFAULT_PARAMS },
+        params: {
+            ...DEFAULT_PARAMS,
+            model: initialImageSource.model,
+            size: initialImageSource.size,
+            quality: initialImageSource.quality,
+        },
+        imageSource: initialImageSource,
         settings: loadSettings(),
         isGenerating: false,
         activeTaskId: null,
@@ -66,31 +79,83 @@
 
     // ===== 存储 =====
     function loadSettings() {
+        if (typeof localStorage === 'undefined') {
+            return {
+                apiProtocol: 'images',
+                requestMode: 'direct',
+                baseUrl: '',
+            };
+        }
         try {
             const raw = localStorage.getItem(SETTINGS_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
-                return {
+                const sanitized = {
                     apiProtocol: parsed.apiProtocol || 'images',
                     requestMode: parsed.requestMode || 'direct',
                     baseUrl: parsed.baseUrl || '',
-                    apiKey: parsed.apiKey || '',
                 };
+                if (Object.prototype.hasOwnProperty.call(parsed, 'apiKey')) {
+                    localStorage.setItem(SETTINGS_KEY, JSON.stringify(sanitized));
+                }
+                return sanitized;
             }
         } catch { }
         return {
             apiProtocol: 'images',
             requestMode: 'direct',
             baseUrl: '',
-            apiKey: '',
         };
     }
 
     function saveSettings() {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(State.settings));
+        if (typeof localStorage === 'undefined') return;
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+            apiProtocol: State.settings.apiProtocol,
+            requestMode: State.settings.requestMode,
+            baseUrl: State.settings.baseUrl,
+        }));
+    }
+
+    function normalizeGptImageSource(source) {
+        const raw = source || {};
+        const provider = String(raw.provider || 'openai').trim() || GPT_SOURCE_DEFAULTS.provider;
+        const rawModel = String(raw.model || raw.imageModel || DEFAULT_PARAMS.model).trim() || DEFAULT_PARAMS.model;
+        const model = MODEL_OPTIONS.some((option) => option.value === rawModel) ? rawModel : DEFAULT_PARAMS.model;
+        const size = String(raw.size || raw.imageSize || DEFAULT_PARAMS.size).trim() || DEFAULT_PARAMS.size;
+        const quality = String(raw.quality || DEFAULT_PARAMS.quality).trim() || DEFAULT_PARAMS.quality;
+        return { provider, model, size, quality };
+    }
+
+    function loadGptImageSource() {
+        if (typeof localStorage === 'undefined') {
+            return { ...GPT_SOURCE_DEFAULTS };
+        }
+        try {
+            const raw = localStorage.getItem(GPT_SOURCE_KEY);
+            if (raw) {
+                return normalizeGptImageSource(JSON.parse(raw));
+            }
+        } catch (error) {
+            console.warn('读取 GPT 画图模型配置失败:', error);
+        }
+        return { ...GPT_SOURCE_DEFAULTS };
+    }
+
+    function saveGptImageSource(source = null) {
+        const normalized = normalizeGptImageSource(source || State.imageSource || State.params);
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(GPT_SOURCE_KEY, JSON.stringify(normalized));
+        }
+        State.imageSource = normalized;
+        return normalized;
     }
 
     function loadTasks() {
+        if (typeof localStorage === 'undefined') {
+            State.tasks = [];
+            return;
+        }
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (raw) {
@@ -107,6 +172,7 @@
     }
 
     function saveTasks() {
+        if (typeof localStorage === 'undefined') return;
         // 限制最大任务数
         if (State.tasks.length > MAX_TASKS) {
             State.tasks = State.tasks.slice(0, MAX_TASKS);
@@ -126,6 +192,7 @@
             State.tasks[idx] = { ...State.tasks[idx], ...updates, updatedAt: Date.now() };
             saveTasks();
             renderGallery();
+            syncUnifiedHistoryForTask(State.tasks[idx]);
         }
     }
 
@@ -133,6 +200,26 @@
         State.tasks = State.tasks.filter(t => t.id !== taskId);
         saveTasks();
         renderGallery();
+        if (window.MatchDrawerImageHistory && typeof window.MatchDrawerImageHistory.refresh === 'function') {
+            window.MatchDrawerImageHistory.refresh();
+        }
+    }
+
+    function syncUnifiedHistoryForTask(task) {
+        if (!task || !window.MatchDrawerImageHistory || typeof window.MatchDrawerImageHistory.add !== 'function') return;
+        const imageUrl = Array.isArray(task.resultImages) && task.resultImages.length > 0 ? task.resultImages[0] : '';
+        window.MatchDrawerImageHistory.add({
+            id: `gpt:${task.id}`,
+            source: 'GPT Image',
+            model: task.params?.model || 'GPT Image',
+            prompt: task.prompt || '',
+            status: task.status || 'pending',
+            imageUrl,
+            error: task.error || '',
+            createdAt: task.createdAt || Date.now(),
+            updatedAt: task.updatedAt || Date.now(),
+            origin: 'gpt'
+        });
     }
 
     // ===== 工具函数 =====
@@ -156,6 +243,28 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function optionLabel(options, value, fallback = '') {
+        const option = options.find((item) => item.value === value);
+        return option ? option.label : (fallback || value || '');
+    }
+
+    function getImageSourceLabel(source) {
+        const normalized = normalizeGptImageSource(source || State.imageSource || State.params);
+        const model = optionLabel(MODEL_OPTIONS, normalized.model, normalized.model);
+        const size = optionLabel(SIZE_OPTIONS, normalized.size, normalized.size);
+        const quality = optionLabel(QUALITY_OPTIONS, normalized.quality, normalized.quality);
+        return `${model} / ${size} / ${quality}`;
+    }
+
+    function syncGptImageSourceFromParams() {
+        return saveGptImageSource({
+            provider: State.imageSource?.provider || 'openai',
+            model: State.params.model,
+            size: State.params.size,
+            quality: State.params.quality,
+        });
     }
 
     /** 仅转义引号，用于 HTML 属性值（不破坏 URL 中的 &） */
@@ -187,7 +296,8 @@
             'Content-Type': 'application/json',
         };
         // 优先使用后端管理的 Key
-        const apiKey = window.apiService && window.apiService.apiKey ? window.apiService.apiKey : State.settings.apiKey;
+        const service = window.APIService || window.apiService || null;
+        const apiKey = service && service.apiKey ? service.apiKey : '';
         if (apiKey) {
             headers['Authorization'] = `Bearer ${apiKey}`;
         }
@@ -196,8 +306,9 @@
 
     function getApiBaseUrl() {
         // 优先使用后端配置的主机
-        if (window.apiService && window.apiService.apiHost) {
-            return window.apiService.apiHost.replace(/\/+$/, '');
+        const service = window.APIService || window.apiService || null;
+        if (service && service.apiHost) {
+            return service.apiHost.replace(/\/+$/, '');
         }
         const custom = (State.settings.baseUrl || '').trim();
         if (custom) {
@@ -308,15 +419,17 @@
     async function submitGeneration() {
         if (State.isGenerating) return;
 
-        const prompt = State.prompt.trim();
+        const prompt = getActivePromptValue();
+        State.prompt = prompt;
         const hasImages = State.inputImages.length > 0;
         if (!prompt && !hasImages) {
             showToast('请输入提示词或上传参考图', 'warning');
             return;
         }
 
-        const apiKey = window.apiService && window.apiService.apiKey ? window.apiService.apiKey : State.settings.apiKey;
-        if (!apiKey) {
+        const service = window.APIService || window.apiService || null;
+        const apiKey = service && service.apiKey ? service.apiKey : '';
+        if (!apiKey && !(typeof AppState !== 'undefined' && AppState.hasKey && window.APIService)) {
             showToast('未配置 API 密钥，请先在 API 设置中添加', 'error');
             if (typeof showPage === 'function') showPage('api-keys');
             return;
@@ -343,7 +456,9 @@
         State.activeTaskId = taskId;
 
         try {
-            if (State.settings.apiProtocol === 'responses') {
+            if (!apiKey && typeof AppState !== 'undefined' && AppState.hasKey && window.APIService) {
+                await submitBackendManaged(task);
+            } else if (State.settings.apiProtocol === 'responses') {
                 await submitResponses(task);
             } else {
                 await submitImagesGenerations(task);
@@ -363,23 +478,75 @@
         }
     }
 
+    function getBackendGptModel(model) {
+        const value = String(model || '').trim();
+        return value === 'gpt-image' || !MODEL_OPTIONS.some((option) => option.value === value)
+            ? 'gpt-image-2'
+            : value;
+    }
+
+    async function submitBackendManaged(task) {
+        updateTask(task.id, { status: 'running' });
+        const backendModel = getBackendGptModel(task.params.model);
+        await window.APIService.generateImage(task.prompt, {
+            model: backendModel,
+            provider: 'grsai',
+            imageProvider: 'grsai',
+            imageModel: backendModel,
+            expMode: 'vanilla',
+            retrievalSetting: 'none',
+            criticEnabled: false,
+            evalEnabled: false,
+            maxCriticRounds: 0,
+            imageSize: '1K',
+            urls: State.inputImages.map((item) => item.dataUrl).filter(Boolean),
+            onComplete: (resultData) => {
+                const images = [];
+                if (resultData && Array.isArray(resultData.results)) {
+                    resultData.results.forEach((item) => {
+                        if (item && item.url) images.push(item.url);
+                    });
+                }
+                updateTask(task.id, {
+                    status: images.length > 0 ? 'completed' : 'failed',
+                    resultImages: images,
+                    error: images.length > 0 ? null : '后端未返回图片',
+                    updatedAt: Date.now(),
+                });
+                if (images.length > 0) showToast(`成功生成 ${images.length} 张图片`, 'success');
+            }
+        });
+    }
+
+    function isUnifiedGptMode() {
+        const selector = document.getElementById('generationImageModelSelect');
+        const model = selector ? String(selector.value || '').toLowerCase().trim() : '';
+        return typeof AppState !== 'undefined'
+            && AppState.currentPage === 'image-generation'
+            && selector
+            && (model === 'gpt-image' || model.startsWith('gpt-image') || model === 'dall-e-3');
+    }
+
+    function getActivePromptValue() {
+        const unifiedPrompt = document.getElementById('promptInput');
+        if (isUnifiedGptMode() && unifiedPrompt) {
+            return unifiedPrompt.value.trim();
+        }
+        return State.prompt.trim();
+    }
+
     async function submitImagesGenerations(task) {
         const payload = {
             model: task.params.model,
             prompt: task.prompt,
             n: Math.min(Math.max(task.params.n || 1, 1), 4),
             size: task.params.size === 'auto' ? '1024x1024' : task.params.size,
-            quality: task.params.quality,
-            output_format: task.params.output_format,
+            response_format: 'url',
         };
 
-        if (task.params.output_compression != null && task.params.output_format !== 'png') {
-            payload.output_compression = task.params.output_compression;
+        if (State.inputImages.length > 0) {
+            payload.image = State.inputImages.map((item) => item.dataUrl).filter(Boolean);
         }
-
-        // 注意：Images API (images/generations) 不支持直接传入参考图
-        // 参考图编辑需要使用 images/edits 端点和 multipart/form-data 格式
-        // 当前在 Images API 模式下忽略参考图，仅在 Responses API 模式下使用参考图
 
         updateTask(task.id, { status: 'running' });
 
@@ -568,6 +735,7 @@
         if (!container) return;
 
         const tasks = State.tasks;
+        renderGalleryMeta();
         if (tasks.length === 0) {
             container.innerHTML = `
                 <div class="gpt-gallery-empty">
@@ -605,7 +773,7 @@
                             <span class="gpt-task-card-time">${formatTime(task.createdAt)}</span>
                         </div>
                         <div class="gpt-task-card-params">
-                            <span>${escapeHtml(task.params?.model || 'gpt-image-1')}</span>
+                            <span>${escapeHtml(task.params?.model || 'gpt-image-2')}</span>
                             <span>${escapeHtml(task.params?.size || 'auto')}</span>
                             <span>${escapeHtml(task.params?.quality || 'auto')}</span>
                         </div>
@@ -628,6 +796,22 @@
         });
         html += '</div>';
         container.innerHTML = html;
+    }
+
+    function renderImageSourceSummary() {
+        const summaryEl = document.getElementById('gptImageSourceSummary');
+        if (!summaryEl) return;
+
+        const sourceLabel = getImageSourceLabel(State.imageSource || State.params);
+        summaryEl.innerHTML = `<i class="fas fa-microchip"></i><strong>当前配置</strong>：${escapeHtml(sourceLabel)}`;
+    }
+
+    function renderGalleryMeta() {
+        const countEl = document.getElementById('gptGalleryCount');
+        if (!countEl) return;
+
+        const count = Array.isArray(State.tasks) ? State.tasks.length : 0;
+        countEl.innerHTML = `<i class="fas fa-layer-group"></i><strong>记录数</strong>：${count}`;
     }
 
     function updateSubmitButton() {
@@ -753,6 +937,7 @@
 
         State.prompt = task.prompt || '';
         State.params = { ...DEFAULT_PARAMS, ...task.params };
+        syncGptImageSourceFromParams();
 
         const promptEl = document.getElementById('gptPromptInput');
         if (promptEl) promptEl.value = State.prompt;
@@ -780,6 +965,7 @@
         if (qualityEl) qualityEl.value = State.params.quality;
         if (formatEl) formatEl.value = State.params.output_format;
         if (nEl) nEl.value = State.params.n;
+        renderImageSourceSummary();
     }
 
     // ===== Toast =====
@@ -847,7 +1033,7 @@
     function setupPaste() {
         document.addEventListener('paste', (e) => {
             // 只在 GPT 画图页面激活时处理粘贴
-            if (typeof AppState !== 'undefined' && AppState.currentPage !== 'gpt-image') return;
+            if (typeof AppState !== 'undefined' && AppState.currentPage !== 'gpt-image' && !isUnifiedGptMode()) return;
             const items = e.clipboardData?.items;
             if (!items) return;
             const imageFiles = [];
@@ -889,11 +1075,9 @@
 
     function saveGptSettings() {
         const baseUrlEl = document.getElementById('gptSettingsBaseUrl');
-        const apiKeyEl = document.getElementById('gptSettingsApiKey');
         const protocolEl = document.getElementById('gptSettingsProtocol');
 
         if (baseUrlEl) State.settings.baseUrl = baseUrlEl.value.trim();
-        if (apiKeyEl) State.settings.apiKey = apiKeyEl.value.trim();
         if (protocolEl) State.settings.apiProtocol = protocolEl.value;
 
         saveSettings();
@@ -903,11 +1087,9 @@
 
     function loadGptSettingsUI() {
         const baseUrlEl = document.getElementById('gptSettingsBaseUrl');
-        const apiKeyEl = document.getElementById('gptSettingsApiKey');
         const protocolEl = document.getElementById('gptSettingsProtocol');
 
         if (baseUrlEl) baseUrlEl.value = State.settings.baseUrl;
-        if (apiKeyEl) apiKeyEl.value = State.settings.apiKey;
         if (protocolEl) protocolEl.value = State.settings.apiProtocol;
     }
 
@@ -960,6 +1142,7 @@
         loadTasks();
         renderGallery();
         renderInputImages();
+        renderImageSourceSummary();
         if (!_initialized) {
             setupDragDrop();
             setupPaste();
@@ -988,6 +1171,29 @@
             submitBtn.addEventListener('click', submitGeneration);
         }
 
+        const quickPromptContainer = document.getElementById('gptQuickPrompts');
+        if (quickPromptContainer) {
+            quickPromptContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('.gpt-prompt-chip');
+                if (!button) return;
+                const value = button.getAttribute('data-fill-gpt-prompt') || '';
+                if (!value.trim()) return;
+
+                const promptEl = document.getElementById('gptPromptInput');
+                if (promptEl) {
+                    promptEl.value = value.trim();
+                    State.prompt = value.trim();
+                    promptEl.focus();
+                }
+                const unifiedPromptEl = document.getElementById('promptInput');
+                if (isUnifiedGptMode() && unifiedPromptEl) {
+                    unifiedPromptEl.value = value.trim();
+                    unifiedPromptEl.focus();
+                    unifiedPromptEl.setSelectionRange(unifiedPromptEl.value.length, unifiedPromptEl.value.length);
+                }
+            });
+        }
+
         const fileInput = document.getElementById('gptFileInput');
         if (fileInput) {
             fileInput.addEventListener('change', (e) => {
@@ -1003,16 +1209,6 @@
         const attachBtn = document.getElementById('gptAttachBtn');
         if (attachBtn && fileInput) {
             attachBtn.addEventListener('click', () => fileInput.click());
-        }
-
-        const urlBtn = document.getElementById('gptUrlBtn');
-        if (urlBtn) {
-            urlBtn.addEventListener('click', () => {
-                const url = prompt('请输入图片 URL:');
-                if (url && url.trim()) {
-                    addInputImageFromUrl(url.trim());
-                }
-            });
         }
 
         const settingsBtn = document.getElementById('gptSettingsBtn');
@@ -1055,6 +1251,8 @@
         if (modelSelect) {
             modelSelect.addEventListener('change', (e) => {
                 State.params.model = e.target.value;
+                syncGptImageSourceFromParams();
+                renderImageSourceSummary();
             });
         }
 
@@ -1062,6 +1260,8 @@
         if (sizeSelect) {
             sizeSelect.addEventListener('change', (e) => {
                 State.params.size = e.target.value;
+                syncGptImageSourceFromParams();
+                renderImageSourceSummary();
             });
         }
 
@@ -1069,6 +1269,8 @@
         if (qualitySelect) {
             qualitySelect.addEventListener('change', (e) => {
                 State.params.quality = e.target.value;
+                syncGptImageSourceFromParams();
+                renderImageSourceSummary();
             });
         }
 
@@ -1089,6 +1291,24 @@
         }
     }
 
+    async function submitFromUnifiedPage() {
+        const unifiedPromptEl = document.getElementById('promptInput');
+        const gptPromptEl = document.getElementById('gptPromptInput');
+        const unifiedModelEl = document.getElementById('generationImageModelSelect');
+        const gptModelEl = document.getElementById('gptModelSelect');
+        const selectedModel = unifiedModelEl ? String(unifiedModelEl.value || '').trim() : '';
+        if (selectedModel && (selectedModel === 'gpt-image' || selectedModel.startsWith('gpt-image') || selectedModel === 'dall-e-3')) {
+            const model = selectedModel === 'gpt-image' ? 'gpt-image-2' : selectedModel;
+            State.params.model = model;
+            if (gptModelEl) gptModelEl.value = model;
+        }
+        if (unifiedPromptEl) {
+            State.prompt = unifiedPromptEl.value.trim();
+            if (gptPromptEl) gptPromptEl.value = unifiedPromptEl.value;
+        }
+        return submitGeneration();
+    }
+
     // ===== 公开 API =====
     window.GPTImage = {
         init,
@@ -1097,8 +1317,10 @@
         reuseTask,
         deleteTask,
         submitGeneration,
+        submitFromUnifiedPage,
         exportTasks,
         importTasks,
+        refreshImageSourceSummary: renderImageSourceSummary,
     };
 
 })();

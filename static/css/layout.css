@@ -4,8 +4,9 @@
 
 /* ===== 应用容器 ===== */
 .app-container {
+  --app-sidebar-width: 14rem;
   display: grid;
-  grid-template-columns: 14rem 1fr;
+  grid-template-columns: var(--app-sidebar-width) 1fr;
   min-height: 100vh;
   background: var(--color-bg-primary);
   position: relative;
@@ -13,7 +14,7 @@
 
 /* ===== 侧边栏 ===== */
 .sidebar {
-  background: linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+  background: var(--color-bg-surface);
   border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
@@ -58,13 +59,7 @@
 }
 
 .brand-logo::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%);
+  content: none;
 }
 
 .brand-text {
@@ -76,10 +71,7 @@
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
   line-height: 1.2;
-  background: linear-gradient(90deg, var(--color-text-primary) 0%, var(--color-primary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--color-text-primary);
 }
 
 .brand-subtitle {
@@ -127,7 +119,7 @@
 
 .nav-item:hover {
   color: var(--color-primary);
-  background: linear-gradient(135deg, var(--color-bg-surface-highlight) 0%, var(--color-bg-surface-elevated) 100%);
+  background: var(--color-bg-surface-highlight);
   border-color: var(--color-primary);
   transform: translateX(4px);
   box-shadow: var(--shadow-md);
@@ -138,7 +130,7 @@
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-bg-surface-highlight) 100%);
+  background: var(--color-bg-surface-highlight);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-medium);
   border: 1px solid var(--color-primary);
@@ -246,7 +238,7 @@
 .user-avatar {
   width: 2rem;
   height: 2rem;
-  background: var(--gradient-primary);
+  background: var(--color-primary);
   border-radius: var(--radius-full);
   display: flex;
   align-items: center;
@@ -295,6 +287,7 @@
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  position: relative;
 }
 
 .brand-logo-image {
@@ -317,7 +310,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
-  background: linear-gradient(180deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+  background: var(--color-bg-surface-elevated);
   border-bottom: 1px solid var(--color-border);
   min-height: 4rem;
   padding: 0 var(--space-5);
@@ -348,10 +341,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: linear-gradient(90deg, var(--color-text-primary) 0%, var(--color-text-secondary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--color-text-primary);
 }
 
 .page-subtitle {
@@ -417,7 +407,7 @@
   justify-content: center;
   width: 2.25rem;
   height: 2.25rem;
-  background: linear-gradient(135deg, var(--color-bg-surface-subtle) 0%, var(--color-bg-surface) 100%);
+  background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
@@ -428,7 +418,7 @@
 }
 
 .action-button:hover {
-  background: linear-gradient(135deg, var(--color-bg-surface-highlight) 0%, var(--color-bg-surface-elevated) 100%);
+  background: var(--color-bg-surface-highlight);
   color: var(--color-primary);
   border-color: var(--color-primary);
   transform: translateY(-1px);
@@ -536,6 +526,46 @@ body[data-desktop="true"] .window-controls {
   overflow-y: auto;
 }
 
+.feature-lock-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 35;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(1px);
+  pointer-events: auto;
+}
+
+.main-content.has-feature-lock .feature-lock-overlay {
+  display: flex;
+}
+
+.feature-lock-message {
+  display: grid;
+  gap: var(--space-2);
+  min-width: min(22rem, 80vw);
+  padding: var(--space-8) var(--space-10);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--color-text-primary);
+  text-align: center;
+  box-shadow: var(--shadow-xl);
+}
+
+.feature-lock-message strong {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.1;
+}
+
+.feature-lock-message span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+}
+
 /* 页面头部 */
 .page-header {
   margin-bottom: var(--space-6);
@@ -616,14 +646,7 @@ body[data-desktop="true"] .window-controls {
 }
 
 .content-card-title::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -0.5rem;
-  width: 2rem;
-  height: 3px;
-  background: var(--gradient-primary);
-  border-radius: var(--radius-full);
+  display: none;
 }
 
 .content-card-body {
@@ -670,7 +693,8 @@ body[data-desktop="true"] .window-controls {
 /* ===== 响应式布局 ===== */
 @media (max-width: 1024px) {
   .app-container {
-    grid-template-columns: 4rem 1fr;
+    --app-sidebar-width: 4rem;
+    grid-template-columns: var(--app-sidebar-width) 1fr;
   }
 
   .sidebar {
@@ -729,6 +753,7 @@ body[data-desktop="true"] .window-controls {
 
 @media (max-width: 768px) {
   .app-container {
+    --app-sidebar-width: 0rem;
     grid-template-columns: 1fr;
   }
 
@@ -849,6 +874,107 @@ body[data-desktop="true"] .window-controls {
   }
 }
 
+@media (max-width: 1024px) {
+  .app-container {
+    --app-sidebar-width: 0rem;
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: auto;
+    height: auto;
+    max-height: 4.75rem;
+    border-right: 0;
+    border-top: 1px solid var(--color-border);
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+    z-index: 40;
+    display: flex;
+    justify-content: center;
+  }
+
+  .sidebar-header,
+  .sidebar-footer {
+    display: none;
+  }
+
+  .sidebar-nav {
+    width: 100%;
+    max-width: 42rem;
+    flex-direction: row;
+    align-items: stretch;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.35rem;
+    margin: 0 auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    flex: 0 0 4.75rem;
+    min-width: 4.75rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.45rem 0.35rem;
+    border-radius: var(--radius-md);
+    transform: none;
+  }
+
+  .nav-item:hover {
+    transform: none;
+  }
+
+  .nav-item.active::after {
+    display: none;
+  }
+
+  .nav-icon {
+    width: auto;
+    font-size: 1rem;
+  }
+
+  .nav-label {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    font-size: 0.7rem;
+    line-height: 1.15;
+    text-align: center;
+    white-space: nowrap;
+    writing-mode: horizontal-tb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .main-content {
+    height: auto;
+    min-height: 100vh;
+    padding-bottom: 5.75rem;
+  }
+
+  .page-content {
+    padding-bottom: 6rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .sidebar-nav {
+    max-width: none;
+    justify-content: flex-start;
+    margin: 0;
+  }
+}
+
 /* ===== 打印样式 ===== */
 @media print {
   .sidebar,
@@ -876,4 +1002,3 @@ body[data-desktop="true"] .window-controls {
     margin-bottom: 1.5rem;
   }
 }
-

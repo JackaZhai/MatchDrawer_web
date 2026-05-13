@@ -1,7 +1,8 @@
 ﻿"""API key service.
 
-Keys are encrypted at rest and stored per-user.
-Supports multiple providers and one active key per provider.
+Keys are encrypted at rest and managed by administrators as platform-wide
+configuration. Runtime calls from normal users resolve through the global
+admin-owned key store while usage remains attributed to the current user.
 """
 
 from __future__ import annotations
@@ -111,6 +112,24 @@ class ApiKeyService:
             return "google"
         return p or "grsai"
 
+    def get_global_key_owner_id(self) -> int:
+        """Return the active admin account that owns platform-wide API keys."""
+        from ..models.user import User
+
+        User.ensure_default_user()
+        admins = [
+            user for user in User.list_all()
+            if (user.role or "user") == "admin" and (user.status or "active") == "active"
+        ]
+        if admins:
+            return int(admins[0].id or 0)
+        default_user = User.ensure_default_user()
+        return int(default_user.id or 0)
+
+    def _resolve_runtime_key_user_id(self, user_id: Optional[int]) -> int:
+        """Resolve the account used for API key lookup at runtime."""
+        return self.get_global_key_owner_id()
+
     def get_decrypted_keys(self, user_id: int) -> Tuple[List[Dict], Dict[str, str]]:
         return ApiKey.get_decrypted_keys(user_id, self.encryption.decrypt)
 
@@ -138,10 +157,11 @@ class ApiKeyService:
 
     def get_active_api_key_value(self, user_id: Optional[int], provider: str = "grsai") -> str:
         provider = self.normalize_provider(provider)
-        if not user_id:
+        key_user_id = self._resolve_runtime_key_user_id(user_id)
+        if not key_user_id:
             return ""
 
-        keys, active_by_provider = self.get_decrypted_keys(user_id)
+        keys, active_by_provider = self.get_decrypted_keys(key_user_id)
         active_id = active_by_provider.get(provider)
         if active_id:
             for item in keys:
@@ -152,10 +172,11 @@ class ApiKeyService:
 
     def get_active_base_url(self, user_id: Optional[int], provider: str = "grsai") -> str:
         provider = self.normalize_provider(provider)
-        if not user_id:
+        key_user_id = self._resolve_runtime_key_user_id(user_id)
+        if not key_user_id:
             return self._default_base_url(provider)
 
-        keys, active_by_provider = self.get_decrypted_keys(user_id)
+        keys, active_by_provider = self.get_decrypted_keys(key_user_id)
         active_id = active_by_provider.get(provider)
         if active_id:
             for item in keys:
