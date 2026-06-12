@@ -9,7 +9,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mono.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/comfyui-workbench.css') }}">
     <!-- Favicon -->
     <link rel="icon" href="{{ url_for('static', filename='app-icon.png') }}" type="image/png">
     <link rel="shortcut icon" href="{{ url_for('static', filename='app-icon.png') }}" type="image/png">
@@ -222,11 +221,6 @@
                 <a href="#" class="nav-item" data-page="image-generation">
                     <i class="fas fa-palette nav-icon"></i>
                     <span class="nav-label" data-i18n="nav.image_generation">图像生成</span>
-                </a>
-                <a href="#" class="nav-item" data-page="comfyui-workbench">
-                    <i class="fas fa-toolbox nav-icon"></i>
-                    <span class="nav-label" data-i18n="nav.comfyui_workbench">生图工作台</span>
-                    <span class="nav-badge" data-i18n="nav.comfyui_workbench_badge">开发中</span>
                 </a>
                 <a href="#" class="nav-item" data-page="paperbanana">
                     <i class="fas fa-diagram-project nav-icon"></i>
@@ -708,79 +702,6 @@
 
                     </div>
                 </div>
-                <div class="page-section" id="page-comfyui-workbench">
-                    <div class="comfy-workbench" id="comfyWorkbenchRoot">
-                        <aside class="comfy-node-library" aria-label="节点库">
-                            <div class="comfy-panel-title">节点库</div>
-                            <button type="button" class="comfy-node-template" data-template="text-image">
-                                <span>Text / Image</span>
-                                <small>文本或参考图生图</small>
-                            </button>
-                            <button type="button" class="comfy-node-template" data-template="image-fusion">
-                                <span>Multi Image Fusion</span>
-                                <small>多图融合与重绘</small>
-                            </button>
-                            <button type="button" class="comfy-node-template" data-template="batch-generate">
-                                <span>Batch Generate</span>
-                                <small>批量变体生成</small>
-                            </button>
-                        </aside>
-
-                        <section class="comfy-main" aria-label="生图工作台画布">
-                            <div class="comfy-toolbar">
-                                <div class="comfy-toolbar-meta">
-                                    <h3 class="content-card-title">生图工作台</h3>
-                                    <div id="comfyImageSourceSummary" class="comfy-source-summary">当前工作台模型：grsai / nano-banana-pro / 1K</div>
-                                    <div class="comfy-source-controls" aria-label="生图工作台模型设置">
-                                        <label class="comfy-source-field">
-                                            <span>供应商</span>
-                                            <select id="comfyImageProviderSelect" class="form-select">
-                                                <option value="grsai">grsai</option>
-                                                <option value="custom">custom</option>
-                                            </select>
-                                        </label>
-                                        <label class="comfy-source-field comfy-source-field-wide">
-                                            <span>模型</span>
-                                            <input id="comfyImageModelInput" class="form-input" type="text" value="nano-banana-pro" autocomplete="off">
-                                        </label>
-                                        <label class="comfy-source-field">
-                                            <span>质量</span>
-                                            <select id="comfyImageSizeSelect" class="form-select">
-                                                <option value="1K">1K</option>
-                                                <option value="2K">2K</option>
-                                                <option value="4K">4K</option>
-                                            </select>
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="comfy-toolbar-actions">
-                                    <span class="comfy-status" id="comfyConnectionStatus">未连接</span>
-                                    <button type="button" class="btn btn-outline btn-sm" id="comfyImportBtn">导入 Workflow</button>
-                                    <input type="file" id="comfyImportInput" accept="application/json" hidden>
-                                    <button type="button" class="btn btn-outline btn-sm" id="comfyInstallBtn">安装 ComfyUI</button>
-                                    <button type="button" class="btn btn-outline btn-sm" id="comfyStartBtn">启动</button>
-                                    <button type="button" class="btn btn-primary btn-sm" id="comfyRunBtn">运行</button>
-                                </div>
-                            </div>
-
-                            <div class="comfy-canvas-shell">
-                                <svg class="comfy-link-layer" id="comfyLinkLayer" aria-hidden="true"></svg>
-                                <div class="comfy-canvas" id="comfyCanvas"></div>
-                                <div class="comfy-empty-state" id="comfyEmptyState">导入 ComfyUI API workflow JSON 后开始编辑</div>
-                            </div>
-
-                            <div class="comfy-run-panel">
-                                <div class="comfy-log" id="comfyRunLog">等待运行</div>
-                                <div class="comfy-results" id="comfyResults"></div>
-                            </div>
-                        </section>
-
-                        <aside class="comfy-property-panel" aria-label="属性面板">
-                            <div class="comfy-panel-title">属性面板</div>
-                            <div id="comfyPropertyPanel" class="comfy-property-empty">选择一个节点</div>
-                        </aside>
-                    </div>
-                </div>
                 <!-- GPT Image source DOM; mounted into the unified image-generation page at runtime. -->
                 <div id="gpt-image-source-host" class="gpt-source-host" hidden>
                     <div id="gptImagePlayground" class="gpt-playground">
@@ -1033,12 +954,6 @@
                     </div>
                 </div>
             </div>
-            <div class="feature-lock-overlay" id="comfyFeatureLockOverlay" hidden>
-                <div class="feature-lock-message">
-                    <strong>开发中</strong>
-                    <span>敬请期待</span>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -1087,7 +1002,6 @@
 
     <script src="{{ url_for('static', filename='js/api-service.js') }}"></script>
     <script src="{{ url_for('static', filename='js/gpt-image.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/comfyui-workbench.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     <script src="{{ url_for('static', filename='js/integrations.js') }}"></script>
 </body>

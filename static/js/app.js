@@ -49,7 +49,6 @@ const DOM = {
     sidebar: document.querySelector('.sidebar'),
     navItems: document.querySelectorAll('.nav-item'),
     mainContent: document.querySelector('.main-content'),
-    comfyFeatureLockOverlay: document.getElementById('comfyFeatureLockOverlay'),
 
     // 顶部栏
     pageTitle: document.getElementById('pageTitle'),
@@ -165,14 +164,11 @@ const I18N_STRINGS = {
     'zh-CN': {
         'nav.dashboard': '首页',
         'nav.image_generation': '图像生成',
-        'nav.comfyui_workbench': '生图工作台',
-        'nav.comfyui_workbench_badge': '开发中',
         'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API 设置',
         'nav.settings': '设置',
         'page.dashboard': '首页',
         'page.image_generation': '图像生成',
-        'page.comfyui_workbench': '生图工作台',
         'page.paperbanana': 'PaperBanana',
         'page.api_keys': '全局 API 设置',
         'page.settings': '系统设置',
@@ -240,14 +236,11 @@ const I18N_STRINGS = {
     'en-US': {
         'nav.dashboard': 'Home',
         'nav.image_generation': 'Image Generation',
-        'nav.comfyui_workbench': 'Image Workbench',
-        'nav.comfyui_workbench_badge': 'In Development',
         'nav.paperbanana': 'PaperBanana',
         'nav.api_keys': 'API Settings',
         'nav.settings': 'Settings',
         'page.dashboard': 'Home',
         'page.image_generation': 'Image Generation',
-        'page.comfyui_workbench': 'Image Workbench',
         'page.paperbanana': 'PaperBanana',
         'page.api_keys': 'Global API Settings',
         'page.settings': 'System Settings',
@@ -381,9 +374,6 @@ const PageConfig = {
     },
     'image-generation': {
         titleKey: 'page.image_generation'
-    },
-    'comfyui-workbench': {
-        titleKey: 'page.comfyui_workbench'
     },
     paperbanana: {
         titleKey: 'page.paperbanana'
@@ -2272,15 +2262,10 @@ function showPage(pageId) {
                 requestAnimationFrame(() => {
                     DOM.promptInput.focus();
                     const end = DOM.promptInput.value.length;
-                    DOM.promptInput.setSelectionRange(end, end);
-                });
-            }
-            break;
-        case 'comfyui-workbench':
-            if (AppState.isAdmin && window.ComfyUIWorkbench && window.ComfyUIWorkbench.init) {
-                window.ComfyUIWorkbench.init();
-            }
-            break;
+                DOM.promptInput.setSelectionRange(end, end);
+            });
+        }
+        break;
         case 'paperbanana':
             loadGenerationModelOptionsFromKeys();
             updateWorkflowPreview(false);
@@ -2292,8 +2277,6 @@ function showPage(pageId) {
             loadSettings();
             break;
     }
-
-    updateFeatureLockUi();
 
     // 滚动到顶部
     window.scrollTo(0, 0);
@@ -2381,18 +2364,6 @@ function updateAdminOnlyUi() {
     });
     if (!AppState.isAdmin && AppState.currentPage === 'api-keys') {
         showPage('settings');
-    }
-    updateFeatureLockUi();
-}
-
-function updateFeatureLockUi() {
-    const shouldLock = AppState.currentPage === 'comfyui-workbench' && !AppState.isAdmin;
-    if (DOM.mainContent) {
-        DOM.mainContent.classList.toggle('has-feature-lock', shouldLock);
-    }
-    if (DOM.comfyFeatureLockOverlay) {
-        DOM.comfyFeatureLockOverlay.hidden = !shouldLock;
-        DOM.comfyFeatureLockOverlay.setAttribute('aria-hidden', shouldLock ? 'false' : 'true');
     }
 }
 
