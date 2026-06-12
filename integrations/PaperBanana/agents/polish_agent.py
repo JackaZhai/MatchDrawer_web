@@ -164,7 +164,34 @@ class PolishAgent(BaseAgent):
         # Generate polished image
         aspect_ratio = data.get("additional_info", {}).get("rounded_ratio", "16:9")
         try:
-            if generation_utils.openrouter_client is not None:
+            if generation_utils.should_use_grsai_image_generation():
+                image_config = {
+                    "aspect_ratio": aspect_ratio,
+                    "image_size": "1K",
+                }
+                response_list = await generation_utils.call_grsai_image_generation_with_retry_async(
+                    model_name=self.image_gen_model_name,
+                    prompt=user_prompt[:30000],
+                    contents=content_list,
+                    config=image_config,
+                    max_attempts=5,
+                    retry_delay=30,
+                )
+            elif generation_utils.should_use_openai_image_generation(self.image_gen_model_name):
+                image_config = {
+                    "size": "1536x1024",
+                    "quality": "high",
+                    "background": "opaque",
+                    "output_format": "png",
+                }
+                response_list = await generation_utils.call_openai_image_generation_with_retry_async(
+                    model_name=self.image_gen_model_name,
+                    prompt=user_prompt[:30000],
+                    config=image_config,
+                    max_attempts=5,
+                    retry_delay=30,
+                )
+            elif generation_utils.openrouter_client is not None:
                 image_config = {
                     "system_prompt": self.system_prompt,
                     "temperature": self.exp_config.temperature,
@@ -198,18 +225,30 @@ class PolishAgent(BaseAgent):
                 )
             
             if response_list and response_list[0]:
+                image_response = generation_utils.require_image_response(
+                    response_list,
+                    model_name=self.image_gen_model_name,
+                    context="PolishAgent image generation",
+                )
                 # Convert PNG to JPG
-                converted_jpg = image_utils.convert_png_b64_to_jpg_b64(response_list[0])
+                converted_jpg = image_utils.convert_png_b64_to_jpg_b64(image_response)
                 if converted_jpg:
                     output_key = f"polished_{task_name}_base64_jpg"
                     data[output_key] = converted_jpg
                 else:
-                    print(f"⚠️  Image conversion failed")
+                    raise RuntimeError(
+                        f"PolishAgent failed for image model {self.image_gen_model_name}: "
+                        "upstream returned non-image data."
+                    )
             else:
-                print(f"⚠️  No response from model")
+                generation_utils.require_image_response(
+                    response_list,
+                    model_name=self.image_gen_model_name,
+                    context="PolishAgent image generation",
+                )
                 
         except Exception as e:
-            print(f"❌ Error during image generation: {e}")
+            raise RuntimeError(f"PolishAgent image generation failed: {e}") from e
         
         return data
 

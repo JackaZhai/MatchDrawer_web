@@ -92,6 +92,16 @@
   display: none !important;
 }
 
+.paper-provider-field {
+  display: none !important;
+}
+
+.paper-model-field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .workflow-item {
   display: grid;
   grid-template-columns: 2.25rem 1fr;
@@ -1129,7 +1139,7 @@
   bottom: 0;
   z-index: 3;
   padding: var(--space-3);
-  background: var(--color-bg-primary);
+  background: var(--color-bg-surface);
 }
 
 .parameter-label {
@@ -1256,8 +1266,9 @@
   transform: translateY(-8px) scale(0.986);
 }
 
-.image-generation .preview-container {
-  min-height: 0;
+.image-generation .preview-container.preview-container-tall {
+  height: auto;
+  min-height: 32rem;
 }
 
 .preview-image {
@@ -1640,6 +1651,10 @@
   .preview-container-tall {
     min-height: 24rem;
   }
+
+  .image-generation .preview-container.preview-container-tall {
+    min-height: 24rem;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1911,12 +1926,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-6);
-}
-
-.api-global-note {
-  margin: calc(var(--space-3) * -1) 0 var(--space-4);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
 }
 
 .status-item {
@@ -2931,17 +2940,66 @@
 
 .gpt-unified-controls-mount .gpt-input-actions {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
   width: 100%;
   min-width: 0;
 }
 
+.gpt-unified-controls-mount .gpt-control-panel {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  align-self: stretch;
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface-subtle);
+}
+
+#page-image-generation.gpt-image-mode .generation-workbench {
+  grid-template-columns: minmax(28rem, 0.78fr) minmax(18rem, 1fr);
+}
+
+.gpt-unified-controls-mount .gpt-control-grid,
 .gpt-unified-controls-mount .gpt-params-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--space-3);
   width: 100%;
   min-width: 0;
+}
+
+.gpt-unified-controls-mount .gpt-param-field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.gpt-unified-controls-mount .gpt-param-field > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  line-height: 1.2;
+}
+
+.gpt-unified-controls-mount .gpt-param-field > span i {
+  width: 1rem;
+  color: var(--color-primary);
+  text-align: center;
+}
+
+.gpt-unified-controls-mount .gpt-param-field-wide {
+  grid-column: span 2;
+}
+
+#page-image-generation.gpt-image-mode .gpt-unified-controls-mount .gpt-control-grid,
+#page-image-generation.gpt-image-mode .gpt-unified-controls-mount .gpt-params-row {
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
 }
 
 .gpt-unified-controls-mount .gpt-param-select,
@@ -2967,10 +3025,9 @@
 }
 
 .gpt-unified-controls-mount #gptAttachBtn {
-  flex: 0 0 2.75rem;
-  width: 2.75rem;
-  padding-left: 0;
-  padding-right: 0;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 6.5rem;
 }
 
 .gpt-unified-controls-mount #gptSubmitBtn {
@@ -3186,6 +3243,10 @@
 
   .gpt-unified-controls-mount .gpt-params-row {
     grid-template-columns: 1fr;
+  }
+
+  .gpt-unified-controls-mount .gpt-param-field-wide {
+    grid-column: auto;
   }
 
   .gpt-unified-gallery-mount .gpt-gallery-grid {

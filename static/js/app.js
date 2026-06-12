@@ -2892,6 +2892,7 @@ function formatBytes(bytes) {
 const UNIFIED_IMAGE_HISTORY_KEY = 'matchdrawer_image_history_v1';
 const GPT_IMAGE_TASKS_KEY = 'gpt_image_tasks_v1';
 const IMAGE_HISTORY_MAX_ITEMS = 80;
+const DASHBOARD_IMAGE_HISTORY_LIMIT = 6;
 
 function normalizeHistoryTimestamp(value) {
     if (!value) return Date.now();
@@ -2979,7 +2980,7 @@ function addUnifiedImageHistory(record) {
 
 function refreshImageHistory() {
     if (!DOM.recentImageHistoryGrid) return;
-    const records = loadUnifiedImageHistory().slice(0, 8);
+    const records = loadUnifiedImageHistory().slice(0, DASHBOARD_IMAGE_HISTORY_LIMIT);
 
     if (records.length === 0) {
         DOM.recentImageHistoryGrid.innerHTML = `
@@ -3032,14 +3033,12 @@ function mountUnifiedGptWorkspace() {
         GPTImage.init();
     }
 
-    const toolbar = playground.querySelector('.gpt-toolbar');
     const gallery = playground.querySelector('.gpt-gallery-shell');
     const inputImages = playground.querySelector('#gptInputImagesList');
     const inputActions = playground.querySelector('.gpt-input-actions');
     const settingsPanel = playground.querySelector('#gptSettingsPanel');
     const gptSubmitBtn = playground.querySelector('#gptSubmitBtn');
 
-    if (DOM.gptUnifiedGalleryMount && toolbar) DOM.gptUnifiedGalleryMount.appendChild(toolbar);
     if (DOM.gptUnifiedGalleryMount && gallery) DOM.gptUnifiedGalleryMount.appendChild(gallery);
     if (DOM.gptUnifiedControlsMount && inputImages) DOM.gptUnifiedControlsMount.appendChild(inputImages);
     if (DOM.gptUnifiedControlsMount && inputActions) DOM.gptUnifiedControlsMount.appendChild(inputActions);
@@ -3060,6 +3059,8 @@ function isUnifiedGptImageModel(model) {
 
 function syncUnifiedImageMode() {
     const isGpt = isUnifiedGptImageModel(getUnifiedImageModel());
+    const imageGenerationPage = document.getElementById('page-image-generation');
+    if (imageGenerationPage) imageGenerationPage.classList.toggle('gpt-image-mode', isGpt);
     document.querySelectorAll('.native-image-model-field').forEach((item) => {
         item.hidden = isGpt;
     });
@@ -3262,7 +3263,7 @@ async function generateImage(mode = 'generic') {
 
     try {
         const result = await window.APIService.generateImage(prompt, {
-            model: 'nano-banana-pro',
+            model: imageModel || 'nano-banana-pro',
             provider,
             textProvider,
             imageProvider,
@@ -3270,6 +3271,7 @@ async function generateImage(mode = 'generic') {
             imageModel,
             expMode: workflowExpMode,
             retrievalSetting: workflowRetrieval,
+            pipelineMode: isPaperMode ? 'full' : 'image_only',
             criticEnabled: workflowCriticEnabled,
             evalEnabled: workflowEvalEnabled,
             maxCriticRounds: workflowCriticEnabled ? workflowCriticRounds : 0,
@@ -3430,6 +3432,26 @@ function swapGenerationPreviewContent(contentHtml, animate = true, mode = 'gener
     }, 340);
 }
 
+function scrollGenerationPreviewIntoView(mode = 'generic') {
+    const finalMode = getGenerationMode(mode);
+    const previewContainer = getGenerationPreviewContainer(finalMode);
+    if (!previewContainer || previewContainer.hidden || typeof previewContainer.scrollIntoView !== 'function') return;
+
+    const activePage = finalMode === 'paper' ? 'paperbanana' : 'image-generation';
+    if (AppState.currentPage && AppState.currentPage !== activePage) return;
+
+    window.setTimeout(() => {
+        const rect = previewContainer.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) return;
+
+        previewContainer.scrollIntoView({
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+            block: 'center',
+            inline: 'nearest'
+        });
+    }, 80);
+}
+
 // 处理图像生成完成
 function handleImageGenerationComplete(resultData, mode = 'generic') {
     const finalMode = getGenerationMode(
@@ -3503,6 +3525,7 @@ function handleImageGenerationComplete(resultData, mode = 'generic') {
                 </div>
             `, true, finalMode);
         }
+        scrollGenerationPreviewIntoView(finalMode);
     }
 
     ErrorHandler.handleSuccess(finalMode === 'paper' ? 'PaperBanana 运行完成' : '图像生成成功', context.successTitle);

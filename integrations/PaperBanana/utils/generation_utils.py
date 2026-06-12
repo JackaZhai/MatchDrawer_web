@@ -127,6 +127,179 @@ def reinitialize_clients():
 reinitialize_clients()
 
 
+def should_use_openai_image_generation(model_name: str = "") -> bool:
+    """Return True when the image lane is explicitly OpenAI-compatible."""
+    if openai_client is None:
+        return False
+    image_provider = os.getenv("OPENAI_IMAGE_PROVIDER", "").strip().lower()
+    if image_provider == "openai":
+        return True
+    return "gpt-image" in str(model_name or "").lower()
+
+
+def should_use_grsai_image_generation() -> bool:
+    """Return True when MatchDrawer bound the image lane to GrsAI."""
+    return bool(os.getenv("OPENAI_IMAGE_API_KEY") or os.getenv("OPENAI_API_KEY")) and (
+        os.getenv("OPENAI_IMAGE_PROVIDER", "").strip().lower() == "grsai"
+    )
+
+
+def _grsai_host_from_env() -> str:
+    base_url = (
+        os.getenv("OPENAI_IMAGE_BASE_URL")
+        or os.getenv("OPENAI_BASE_URL")
+        or "https://grsaiapi.com/v1"
+    ).strip().rstrip("/")
+    if base_url.lower().endswith("/v1"):
+        base_url = base_url[:-3].rstrip("/")
+    return base_url or "https://grsaiapi.com"
+
+
+def _extract_task_id(payload: Dict[str, Any]) -> str:
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    for key in ("id", "taskId", "task_id", "drawId", "draw_id"):
+        value = data.get(key)
+        if value:
+            return str(value).strip()
+    raise RuntimeError(f"GrsAI image API did not return task id: {payload}")
+
+
+async def _grsai_image_value_to_b64(client: httpx.AsyncClient, value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        return ""
+    if value.startswith("data:image/"):
+        return value.split(",", 1)[1] if "," in value else ""
+    if value.startswith("http://") or value.startswith("https://"):
+        response = await client.get(value)
+        response.raise_for_status()
+        return base64.b64encode(response.content).decode("utf-8")
+    return value
+
+
+def _extract_image_candidates(payload: Dict[str, Any]) -> List[str]:
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    values: List[str] = []
+    for key in (
+        "url",
+        "imageUrl",
+        "image_url",
+        "output",
+        "result",
+        "b64_json",
+        "base64",
+        "imageBase64",
+        "image_base64",
+    ):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            values.append(value.strip())
+    for key in ("urls", "images", "outputs", "results"):
+        items = data.get(key)
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, str) and item.strip():
+                    values.append(item.strip())
+                elif isinstance(item, dict):
+                    for item_key in ("url", "imageUrl", "image_url", "b64_json", "base64"):
+                        value = item.get(item_key)
+                        if isinstance(value, str) and value.strip():
+                            values.append(value.strip())
+                            break
+    return values
+
+
+def require_image_response(
+    response_list: List[str],
+    *,
+    model_name: str,
+    context: str = "image generation",
+) -> str:
+    """Return the first generated image payload or raise a user-visible error."""
+    response = response_list[0] if response_list else ""
+    if not isinstance(response, str) or not response.strip() or response.strip().lower() == "error":
+        raise RuntimeError(
+            f"{context} failed for image model {model_name}: upstream returned no image."
+        )
+    return response
+
+
+async def call_grsai_image_generation_with_retry_async(
+    model_name, prompt, contents=None, config=None, max_attempts=5, retry_delay=30, error_context=""
+):
+    """Call GrsAI native image task API and return base64 image payloads."""
+    api_key = (os.getenv("OPENAI_IMAGE_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+    if not api_key:
+        raise RuntimeError("GrsAI image client was not initialized: missing API key.")
+
+    cfg = config or {}
+    urls = []
+    text_parts = [prompt] if prompt else []
+    for item in contents or []:
+        if item.get("type") == "text" and item.get("text"):
+            text_parts.append(str(item["text"]))
+        elif item.get("type") == "image":
+            source = item.get("source") or {}
+            if source.get("type") == "base64" and source.get("data"):
+                media_type = source.get("media_type") or "image/jpeg"
+                urls.append(f"data:{media_type};base64,{source['data']}")
+            elif item.get("image_base64"):
+                urls.append(f"data:image/jpeg;base64,{item['image_base64']}")
+
+    payload = {
+        "model": model_name,
+        "prompt": "\n\n".join([p for p in text_parts if p]).strip(),
+        "aspectRatio": cfg.get("aspect_ratio") or cfg.get("aspectRatio") or "auto",
+        "imageSize": str(cfg.get("image_size") or cfg.get("imageSize") or "1K").upper(),
+        "urls": urls,
+        "webHook": "-1",
+        "shutProgress": False,
+    }
+    host = _grsai_host_from_env()
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    context_msg = f" for {error_context}" if error_context else ""
+    last_error = None
+    async with httpx.AsyncClient(timeout=120) as client:
+        for attempt in range(max_attempts):
+            try:
+                submit = await client.post(f"{host}/v1/api/generate", headers=headers, json=payload)
+                submit.raise_for_status()
+                task_id = _extract_task_id(submit.json())
+
+                for _ in range(max_attempts):
+                    await asyncio.sleep(retry_delay)
+                    result = await client.post(
+                        f"{host}/v1/api/result",
+                        headers=headers,
+                        json={"id": task_id},
+                    )
+                    result.raise_for_status()
+                    result_payload = result.json()
+                    data = result_payload.get("data") if isinstance(result_payload.get("data"), dict) else result_payload
+                    status = str(data.get("status") or data.get("state") or "").strip().lower()
+                    candidates = _extract_image_candidates(result_payload)
+                    if candidates and status in {"success", "succeeded", "completed", "done", "finish", "finished", ""}:
+                        image_b64 = await _grsai_image_value_to_b64(client, candidates[0])
+                        if image_b64:
+                            return [image_b64]
+                    if status in {"failed", "fail", "failure", "error"}:
+                        raise RuntimeError(data.get("error") or data.get("failure_reason") or "GrsAI task failed")
+            except Exception as exc:
+                last_error = exc
+                print(
+                    f"Attempt {attempt + 1} for GrsAI image generation model {model_name} failed{context_msg}: {exc}. "
+                    f"Retrying in {retry_delay} seconds..."
+                )
+                if attempt < max_attempts - 1:
+                    await asyncio.sleep(retry_delay)
+        print(f"Error: All {max_attempts} GrsAI image generation attempts failed{context_msg}")
+        detail = f": {last_error}" if last_error else ""
+        raise RuntimeError(
+            f"GrsAI image generation failed for model {model_name}{context_msg}{detail}"
+        )
+
+
 
 def _convert_to_gemini_parts(contents: List[Dict[str, Any]]) -> List[types.Part]:
     """
@@ -480,6 +653,11 @@ async def call_openai_image_generation_with_retry_async(
     """
     ASYNC: Call OpenAI Image Generation API (GPT-Image) with asynchronous retry logic.
     """
+    if openai_client is None:
+        raise RuntimeError(
+            "OpenAI-compatible image client was not initialized: missing API key."
+        )
+
     size = config.get("size", "1536x1024")
     quality = config.get("quality", "high")
     background = config.get("background", "opaque")

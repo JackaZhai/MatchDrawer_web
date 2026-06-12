@@ -224,7 +224,7 @@
                     <span class="nav-label" data-i18n="nav.image_generation">图像生成</span>
                 </a>
                 <a href="#" class="nav-item" data-page="comfyui-workbench">
-                    <i class="fas fa-project-diagram nav-icon"></i>
+                    <i class="fas fa-toolbox nav-icon"></i>
                     <span class="nav-label" data-i18n="nav.comfyui_workbench">生图工作台</span>
                 </a>
                 <a href="#" class="nav-item" data-page="paperbanana">
@@ -287,7 +287,7 @@
                                         <div class="content-card-subtitle">展示 nano-banana-pro 与 GPT Image 的最近生成记录</div>
                                     </div>
                                     <button class="btn btn-primary btn-sm quick-action" data-target="image-generation">
-                                        <i class="fas fa-palette"></i>
+                                        <i class="fas fa-magic"></i>
                                         开始生成
                                     </button>
                                 </div>
@@ -296,60 +296,6 @@
                                 </div>
                             </div>
 
-                            <div class="content-card">
-                                <div class="content-card-header">
-                                    <h3 class="content-card-title">推荐工作流</h3>
-                                </div>
-                                <div class="content-card-body">
-                                    <div class="workflow-list">
-                                        <div class="workflow-item">
-                                            <div class="workflow-index">01</div>
-                                            <div>
-                                                <div class="workflow-title">先定义输出类型</div>
-                                                <div class="workflow-desc">先明确流程图、架构图、机制图、对比图或产品示意图，减少提示词歧义。</div>
-                                            </div>
-                                        </div>
-                                        <div class="workflow-item">
-                                            <div class="workflow-index">02</div>
-                                            <div>
-                                                <div class="workflow-title">使用模板快速起稿</div>
-                                                <div class="workflow-desc">先用通用模板起稿，再根据业务或科研语境补充细节。</div>
-                                            </div>
-                                        </div>
-                                        <div class="workflow-item">
-                                            <div class="workflow-index">03</div>
-                                            <div>
-                                                <div class="workflow-title">复杂任务切换专业工作流</div>
-                                                <div class="workflow-desc">需要多阶段规划、检索和审图时，直接启用 PaperBanana 专业工作流。</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="prompt-chips">
-                                        <button type="button" class="prompt-chip" data-fill-prompt="Design a user permission flowchart for a SaaS workspace. Show admin, editor, and viewer paths after login. Use a clean white background, clear arrows, and concise English labels.">
-                                            权限流程图模板
-                                        </button>
-                                        <button type="button" class="prompt-chip" data-fill-prompt="Create a system architecture diagram for an AI assistant platform with web client, API gateway, worker queue, vector store, and monitoring. Use balanced spacing, simple color blocks, and English labels.">
-                                            架构图模板
-                                        </button>
-                                        <button type="button" class="prompt-chip" data-fill-prompt="Create a mechanism diagram for oxidative stress in neuronal aging. Include mitochondria, ROS accumulation, DNA damage response, and downstream inflammation pathways. Use a clean white background, journal-ready style, English labels, and clear directional arrows.">
-                                            机制图模板
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="content-card">
-                                <div class="content-card-header">
-                                    <h3 class="content-card-title">最近活动</h3>
-                                    <button class="btn btn-ghost btn-sm" id="refreshActivities">
-                                        <i class="fas fa-sync-alt"></i>
-                                        刷新
-                                    </button>
-                                </div>
-                                <div class="content-card-body">
-                                    <div class="activity-list" id="activitiesList"></div>
-                                </div>
-                            </div>
                         </div>
 
                         <div class="content-card">
@@ -504,27 +450,31 @@
                                         <span>工作流参数</span>
                                     </div>
                                     <div class="parameter-grid-2">
-                                        <div class="form-group provider-locked-field">
-                                            <label class="form-label">语言供应商</label>
-                                            <select id="generationTextProviderSelect" class="form-select">
-                                                <option value="grsai">grsai</option>
-                                            </select>
-                                            <label class="form-label" style="margin-top: 0.5rem;">语言模型</label>
+                                        <div class="form-group paper-model-field">
+                                            <div class="paper-provider-field" aria-hidden="true">
+                                                <label class="form-label" for="generationTextProviderSelect">语言供应商</label>
+                                                <select id="generationTextProviderSelect" class="form-select">
+                                                    <option value="grsai">grsai</option>
+                                                </select>
+                                            </div>
+                                            <label class="form-label" for="generationTextModelSelect">PaperBanana 语言模型</label>
                                             <select id="generationTextModelSelect" class="form-select">
                                                 <option value="gpt-4o-mini">gpt-4o-mini</option>
                                             </select>
                                             <div class="form-hint">PaperBanana 的规划、检索与审图链路会使用语言模型。</div>
                                         </div>
-                                        <div class="form-group provider-locked-field">
-                                            <label class="form-label">图像供应商</label>
-                                            <select id="paperImageProviderSelect" class="form-select">
-                                                <option value="grsai">grsai</option>
-                                            </select>
-                                            <label class="form-label" style="margin-top: 0.5rem;">图像模型</label>
+                                        <div class="form-group paper-model-field">
+                                            <div class="paper-provider-field" aria-hidden="true">
+                                                <label class="form-label" for="paperImageProviderSelect">图像供应商</label>
+                                                <select id="paperImageProviderSelect" class="form-select">
+                                                    <option value="grsai">grsai</option>
+                                                </select>
+                                            </div>
+                                            <label class="form-label" for="paperImageModelSelect">PaperBanana 生图模型</label>
                                             <select id="paperImageModelSelect" class="form-select">
                                                 <option value="nano-banana-pro">nano-banana-pro</option>
                                             </select>
-                                            <label class="form-label" style="margin-top: 0.5rem;">图像质量</label>
+                                            <label class="form-label" for="paperImageSizeSelect" style="margin-top: 0.5rem;">图像质量</label>
                                             <select id="paperImageSizeSelect" class="form-select">
                                                 <option value="1K">1K</option>
                                                 <option value="2K">2K</option>
@@ -652,11 +602,6 @@
                 <!-- API密钥页面 -->
                 <div class="page-section" id="page-api-keys">
                     <div class="api-keys">
-                        <div class="content-card-header">
-                            <h3 class="content-card-title">全局 API 设置</h3>
-                        </div>
-                        <p class="api-global-note">此处配置平台全局 API。所有用户共用当前密钥，生成与调用记录按登录账号统计用量。</p>
-
                         <div class="keys-status">
                             <div class="status-item">
                                 <div class="status-icon success">
@@ -838,59 +783,10 @@
                 <!-- GPT Image source DOM; mounted into the unified image-generation page at runtime. -->
                 <div id="gpt-image-source-host" class="gpt-source-host" hidden>
                     <div id="gptImagePlayground" class="gpt-playground">
-                        <!-- 工具栏 -->
-                        <div class="gpt-toolbar">
-                            <div class="gpt-toolbar-meta">
-                                <div class="gpt-toolbar-title">
-                                    <i class="fas fa-robot"></i>
-                                    <span>GPT Image 画图工作台</span>
-                                </div>
-                                <div class="gpt-toolbar-meta-row">
-                                    <span class="gpt-source-chip" id="gptImageSourceSummary">
-                                        <i class="fas fa-microchip"></i>
-                                        <strong>当前配置</strong>：GPT Image 1 / 1024 x 1024 / 高
-                                    </span>
-                                    <span class="gpt-source-chip" id="gptGalleryCount">
-                                        <i class="fas fa-layer-group"></i>
-                                        <strong>记录数</strong>：0
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="gpt-toolbar-actions">
-                                <button class="btn btn-ghost btn-sm" id="gptExportBtn" title="导出历史">
-                                    <i class="fas fa-file-export"></i>
-                                    导出
-                                </button>
-                                <button class="btn btn-ghost btn-sm" id="gptImportBtn" title="导入历史">
-                                    <i class="fas fa-file-import"></i>
-                                    导入
-                                </button>
-                                <input type="file" id="gptImportInput" accept="application/json" style="display:none">
-                                <button class="btn btn-ghost btn-sm" id="gptSettingsBtn" title="画图设置">
-                                    <i class="fas fa-sliders-h"></i>
-                                    设置
-                                </button>
-                            </div>
-                        </div>
-
                         <!-- 画廊区域 -->
                         <div class="gpt-gallery-shell">
                             <div class="gpt-gallery-head">
                                 <div class="gpt-gallery-title">最近生成</div>
-                                <div class="gpt-quick-prompts" id="gptQuickPrompts">
-                                    <button class="gpt-prompt-chip" type="button" data-fill-gpt-prompt="生成一张电影级产品展示图，干净背景，突出主视觉与功能模块">
-                                        产品展示图
-                                    </button>
-                                    <button class="gpt-prompt-chip" type="button" data-fill-gpt-prompt="生成一张极简科技风插画，强调数据可视化与网络节点连接">
-                                        科技插画
-                                    </button>
-                                    <button class="gpt-prompt-chip" type="button" data-fill-gpt-prompt="生成一张自然风景海报，色彩柔和，适合封面使用">
-                                        海报配图
-                                    </button>
-                                    <button class="gpt-prompt-chip" type="button" data-fill-gpt-prompt="生成一张人物头像图，写实风格，光影均衡，表情自然">
-                                        人物头像
-                                    </button>
-                                </div>
                             </div>
                             <div class="gpt-gallery" id="gptGalleryGrid"></div>
                         </div>
@@ -913,34 +809,52 @@
 
                                 <!-- 参数和按钮行 -->
                                 <div class="gpt-input-actions">
-                                    <div class="gpt-params-row">
-                                        <select id="gptModelSelect" class="form-select gpt-param-select" title="模型">
-                                            <option value="gpt-image-2">GPT Image 2</option>
-                                        </select>
-                                        <select id="gptSizeSelect" class="form-select gpt-param-select" title="尺寸">
-                                            <option value="1024x1024">1024 x 1024</option>
-                                            <option value="1024x1536">1024 x 1536</option>
-                                            <option value="1536x1024">1536 x 1024</option>
-                                            <option value="auto">自动</option>
-                                        </select>
-                                        <select id="gptQualitySelect" class="form-select gpt-param-select" title="质量">
-                                            <option value="auto">自动</option>
-                                            <option value="low">低</option>
-                                            <option value="medium">中</option>
-                                            <option value="high">高</option>
-                                        </select>
-                                        <select id="gptFormatSelect" class="form-select gpt-param-select" title="格式">
-                                            <option value="png">PNG</option>
-                                            <option value="jpeg">JPEG</option>
-                                            <option value="webp">WebP</option>
-                                        </select>
-                                        <input type="number" id="gptNInput" class="form-input gpt-param-input" value="1" min="1" max="4" title="生成数量">
+                                    <div class="gpt-control-panel">
+                                        <div class="gpt-control-grid gpt-params-row">
+                                            <label class="gpt-param-field gpt-param-field-wide" for="gptModelSelect">
+                                                <span><i class="fas fa-cube"></i><span>模型</span></span>
+                                                <select id="gptModelSelect" class="form-select gpt-param-select" title="模型">
+                                                    <option value="gpt-image-2">GPT Image 2</option>
+                                                </select>
+                                            </label>
+                                            <label class="gpt-param-field" for="gptSizeSelect">
+                                                <span><i class="fas fa-expand-arrows-alt"></i><span>尺寸</span></span>
+                                                <select id="gptSizeSelect" class="form-select gpt-param-select" title="尺寸">
+                                                    <option value="1024x1024">1024 x 1024</option>
+                                                    <option value="1024x1536">1024 x 1536</option>
+                                                    <option value="1536x1024">1536 x 1024</option>
+                                                    <option value="auto">自动</option>
+                                                </select>
+                                            </label>
+                                            <label class="gpt-param-field" for="gptQualitySelect">
+                                                <span><i class="fas fa-gem"></i><span>质量</span></span>
+                                                <select id="gptQualitySelect" class="form-select gpt-param-select" title="质量">
+                                                    <option value="auto">自动</option>
+                                                    <option value="low">低</option>
+                                                    <option value="medium">中</option>
+                                                    <option value="high">高</option>
+                                                </select>
+                                            </label>
+                                            <label class="gpt-param-field" for="gptFormatSelect">
+                                                <span><i class="fas fa-file-image"></i><span>格式</span></span>
+                                                <select id="gptFormatSelect" class="form-select gpt-param-select" title="格式">
+                                                    <option value="png">PNG</option>
+                                                    <option value="jpeg">JPEG</option>
+                                                    <option value="webp">WebP</option>
+                                                </select>
+                                            </label>
+                                            <label class="gpt-param-field" for="gptNInput">
+                                                <span><i class="fas fa-layer-group"></i><span>数量</span></span>
+                                                <input type="number" id="gptNInput" class="form-input gpt-param-input" value="1" min="1" max="4" title="生成数量">
+                                            </label>
+                                        </div>
                                     </div>
 
                                     <div class="gpt-action-buttons">
                                         <input type="file" id="gptFileInput" accept="image/*" multiple style="display:none">
                                         <button class="btn btn-outline btn-sm" id="gptAttachBtn" title="添加参考图">
                                             <i class="fas fa-paperclip"></i>
+                                            <span>参考图</span>
                                         </button>
                                         <button class="btn btn-primary" id="gptSubmitBtn">
                                             <i class="fas fa-magic"></i>

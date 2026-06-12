@@ -494,6 +494,7 @@
             imageProvider: 'grsai',
             imageModel: backendModel,
             expMode: 'vanilla',
+            pipelineMode: 'image_only',
             retrievalSetting: 'none',
             criticEnabled: false,
             evalEnabled: false,

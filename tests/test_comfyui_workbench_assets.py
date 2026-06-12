@@ -29,6 +29,18 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertIn("js/comfyui-workbench.js", html)
         self.assertIn("css/comfyui-workbench.css", html)
 
+    def test_workbench_and_paperbanana_sidebar_icons_are_distinct(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+
+        workbench_nav = html.split('data-page="comfyui-workbench"', 1)[1].split("</a>", 1)[0]
+        paperbanana_nav = html.split('data-page="paperbanana"', 1)[1].split("</a>", 1)[0]
+
+        self.assertIn("fa-toolbox", workbench_nav)
+        self.assertNotIn("fa-project-diagram", workbench_nav)
+        self.assertNotIn("fa-diagram-project", workbench_nav)
+        self.assertIn("fa-diagram-project", paperbanana_nav)
+        self.assertNotEqual(workbench_nav, paperbanana_nav)
+
     def test_app_registers_page_config_and_i18n(self):
         app_js = Path("static/js/app.js").read_text(encoding="utf-8")
 
@@ -172,6 +184,134 @@ class ComfyUIWorkbenchAssetsTest(unittest.TestCase):
         self.assertNotIn("getCurrentComfyImageSource", gpt_js)
         self.assertNotIn("generationImageProvider", gpt_js)
         self.assertNotIn("generationImageSize", gpt_js)
+
+    def test_paperbanana_model_selects_are_visible_workflow_controls(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        css = Path("static/css/app.css").read_text(encoding="utf-8")
+
+        paper_page = html.split('id="page-paperbanana"', 1)[1].split('id="page-api-keys"', 1)[0]
+
+        self.assertIn('class="form-group paper-model-field"', paper_page)
+        self.assertIn('for="generationTextModelSelect"', paper_page)
+        self.assertIn('for="paperImageModelSelect"', paper_page)
+        self.assertIn("PaperBanana 语言模型", paper_page)
+        self.assertIn("PaperBanana 生图模型", paper_page)
+        self.assertIn("paper-provider-field", paper_page)
+        self.assertNotIn('class="form-group provider-locked-field"', paper_page)
+        self.assertIn(".paper-provider-field", css)
+
+    def test_image_generation_completion_scrolls_preview_into_view(self):
+        app_js = Path("static/js/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("function scrollGenerationPreviewIntoView", app_js)
+        self.assertIn("previewContainer.scrollIntoView", app_js)
+        self.assertIn("scrollGenerationPreviewIntoView(finalMode)", app_js)
+
+    def test_image_generation_preview_keeps_visible_height(self):
+        css = Path("static/css/app.css").read_text(encoding="utf-8")
+
+        self.assertIn(".image-generation .preview-container.preview-container-tall", css)
+        self.assertIn("height: auto;", css)
+        self.assertIn("min-height: 32rem;", css)
+        self.assertNotIn(".image-generation .preview-container {\n  min-height: 0;", css)
+
+    def test_image_generation_action_dock_matches_panel_surface(self):
+        css = Path("static/css/app.css").read_text(encoding="utf-8")
+        action_dock_sticky = css.split(".action-dock-sticky {", 1)[1].split("}", 1)[0]
+
+        self.assertIn("background: var(--color-bg-surface);", action_dock_sticky)
+        self.assertNotIn("background: var(--color-bg-primary);", action_dock_sticky)
+
+    def test_dashboard_start_generation_uses_stable_action_icon(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        image_history_card = html.split('class="content-card image-history-card"', 1)[1].split('class="content-card"', 1)[0]
+
+        self.assertIn('data-target="image-generation"', image_history_card)
+        self.assertIn('<i class="fas fa-magic"></i>', image_history_card)
+        self.assertNotIn('<i class="fas fa-palette"></i>', image_history_card)
+
+    def test_dashboard_does_not_render_secondary_helper_cards(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        dashboard_page = html.split('id="page-dashboard"', 1)[1].split('id="page-image-generation"', 1)[0]
+
+        self.assertIn("最近画图", dashboard_page)
+        self.assertIn("模型状态", dashboard_page)
+        self.assertNotIn("推荐工作流", dashboard_page)
+        self.assertNotIn("权限流程图模板", dashboard_page)
+        self.assertNotIn("架构图模板", dashboard_page)
+        self.assertNotIn("机制图模板", dashboard_page)
+        self.assertNotIn("最近活动", dashboard_page)
+        self.assertNotIn('id="refreshActivities"', dashboard_page)
+        self.assertNotIn('id="activitiesList"', dashboard_page)
+
+    def test_dashboard_recent_image_history_limits_to_six_items(self):
+        app_js = Path("static/js/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("const DASHBOARD_IMAGE_HISTORY_LIMIT = 6;", app_js)
+        self.assertIn("loadUnifiedImageHistory().slice(0, DASHBOARD_IMAGE_HISTORY_LIMIT)", app_js)
+        self.assertNotIn("loadUnifiedImageHistory().slice(0, 8)", app_js)
+
+    def test_light_monochrome_theme_keeps_primary_text_dark(self):
+        mono_css = Path("static/css/mono.css").read_text(encoding="utf-8")
+        light_theme_block = mono_css.split('[data-theme="light"] {', 1)[1].split("}", 1)[0]
+
+        self.assertIn("--color-primary: #111111;", light_theme_block)
+        self.assertIn("--color-primary-hover: #000000;", light_theme_block)
+        self.assertIn("--color-primary-light: rgba(0, 0, 0, 0.08);", light_theme_block)
+        self.assertIn("--color-text-muted: #555555;", light_theme_block)
+        self.assertNotIn("--color-primary: #ffffff;", light_theme_block)
+
+    def test_unified_gpt_params_use_labeled_responsive_panel(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        css = Path("static/css/app.css").read_text(encoding="utf-8")
+        app_js = Path("static/js/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("gpt-control-panel", html)
+        self.assertIn("gpt-control-grid", html)
+        for field_id, label in (
+            ("gptModelSelect", "模型"),
+            ("gptSizeSelect", "尺寸"),
+            ("gptQualitySelect", "质量"),
+            ("gptFormatSelect", "格式"),
+            ("gptNInput", "数量"),
+        ):
+            self.assertIn(f'for="{field_id}"', html)
+            self.assertIn(f"<span>{label}</span>", html)
+
+        self.assertIn(".gpt-unified-controls-mount .gpt-control-panel", css)
+        self.assertIn(".gpt-unified-controls-mount .gpt-control-grid", css)
+        self.assertIn("grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));", css)
+        self.assertIn(".gpt-unified-controls-mount .gpt-param-field", css)
+        self.assertIn("classList.toggle('gpt-image-mode', isGpt)", app_js)
+        self.assertIn("#page-image-generation.gpt-image-mode .generation-workbench", css)
+        self.assertIn("grid-template-columns: minmax(28rem, 0.78fr) minmax(18rem, 1fr);", css)
+        self.assertIn("#page-image-generation.gpt-image-mode .gpt-unified-controls-mount .gpt-control-grid", css)
+        self.assertIn("grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));", css)
+        self.assertIn("grid-template-columns: minmax(0, 1fr);", css)
+
+    def test_gpt_quick_prompt_buttons_are_removed_from_gallery_header(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        gallery_head = html.split('class="gpt-gallery-head"', 1)[1].split('id="gptGalleryGrid"', 1)[0]
+
+        self.assertNotIn('id="gptQuickPrompts"', gallery_head)
+        self.assertNotIn('class="gpt-prompt-chip"', gallery_head)
+        self.assertNotIn("data-fill-gpt-prompt", gallery_head)
+        for label in ("产品展示图", "科技插画", "海报配图", "人物头像"):
+            self.assertNotIn(label, gallery_head)
+
+    def test_unified_gpt_gallery_does_not_show_toolbar(self):
+        html = Path("templates/index.html").read_text(encoding="utf-8")
+        app_js = Path("static/js/app.js").read_text(encoding="utf-8")
+        gpt_source = html.split('id="gpt-image-source-host"', 1)[1].split('class="gpt-gallery-shell"', 1)[0]
+
+        self.assertNotIn('class="gpt-toolbar"', gpt_source)
+        self.assertNotIn("GPT Image 画图工作台", gpt_source)
+        self.assertNotIn('id="gptImageSourceSummary"', gpt_source)
+        self.assertNotIn('id="gptGalleryCount"', gpt_source)
+        self.assertNotIn('id="gptExportBtn"', gpt_source)
+        self.assertNotIn('id="gptImportBtn"', gpt_source)
+        self.assertNotIn('id="gptSettingsBtn"', gpt_source)
+        self.assertNotIn("DOM.gptUnifiedGalleryMount.appendChild(toolbar)", app_js)
 
     def test_workbench_renders_editable_known_workflow_inputs(self):
         workbench_js = Path("static/js/comfyui-workbench.js").read_text(encoding="utf-8")

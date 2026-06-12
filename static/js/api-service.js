@@ -223,6 +223,7 @@ class APIService {
             imageModel = '',
             expMode = '',
             retrievalSetting = '',
+            pipelineMode = 'full',
             criticEnabled = true,
             evalEnabled = true,
             maxCriticRounds = null,
@@ -241,6 +242,7 @@ class APIService {
             imageModel,
             expMode,
             retrievalSetting,
+            pipelineMode,
             criticEnabled,
             evalEnabled,
             maxCriticRounds,
@@ -250,9 +252,6 @@ class APIService {
             urls,
             shutProgress
         };
-
-        // 设置 webHook 为 -1 以获取任务ID
-        body.webHook = '-1';
 
         try {
             const response = await this.makeRequest('/api/draw', 'POST', body);
@@ -318,6 +317,7 @@ class APIService {
             imageModel = '',
             expMode = '',
             retrievalSetting = '',
+            pipelineMode = 'full',
             criticEnabled = true,
             evalEnabled = true,
             maxCriticRounds = null,
@@ -340,6 +340,7 @@ class APIService {
                 imageModel,
                 expMode,
                 retrievalSetting,
+                pipelineMode,
                 criticEnabled,
                 evalEnabled,
                 maxCriticRounds,
@@ -577,4 +578,3 @@ const apiService = new APIService();
 // 导出到全局
 window.APIService = apiService;
 window.APIConfig = APIConfig;
-

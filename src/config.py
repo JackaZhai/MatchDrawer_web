@@ -40,6 +40,10 @@ class Config:
             os.getenv("AUTH_REMEMBER_TOKEN_TTL_SECONDS", str(30 * 24 * 60 * 60))
         )
         self.cookie_secure = self._get_bool_env("COOKIE_SECURE", default=False)
+        self.newapi_auth_enabled = self._get_bool_env("NEWAPI_AUTH_ENABLED", default=False)
+        self.newapi_base_url = os.getenv("NEWAPI_BASE_URL", "").rstrip("/")
+        self.newapi_auth_timeout_seconds = float(os.getenv("NEWAPI_AUTH_TIMEOUT_SECONDS", "8"))
+        self.newapi_admin_role_threshold = int(os.getenv("NEWAPI_ADMIN_ROLE_THRESHOLD", "100"))
         self.max_reference_images = int(os.getenv("MAX_REFERENCE_IMAGES", "3"))
         self.max_reference_image_bytes = int(
             os.getenv("MAX_REFERENCE_IMAGE_BYTES", str(5 * 1024 * 1024))
@@ -90,6 +94,8 @@ class Config:
             "auth_token_ttl_seconds": self.auth_token_ttl_seconds,
             "auth_remember_token_ttl_seconds": self.auth_remember_token_ttl_seconds,
             "cookie_secure": self.cookie_secure,
+            "newapi_auth_enabled": self.newapi_auth_enabled,
+            "newapi_base_url": self.newapi_base_url,
             "max_reference_images": self.max_reference_images,
             "max_reference_image_bytes": self.max_reference_image_bytes,
         }

@@ -130,7 +130,20 @@ class VanillaAgent(BaseAgent):
         aspect_ratio = data["additional_info"]["rounded_ratio"]
 
         if cfg["use_image_generation"]:
-            if "gpt-image" in self.model_name:
+            if generation_utils.should_use_grsai_image_generation():
+                image_config = {
+                    "aspect_ratio": aspect_ratio,
+                    "image_size": "1K",
+                }
+                response_list = await generation_utils.call_grsai_image_generation_with_retry_async(
+                    model_name=self.model_name,
+                    prompt=prompt_text[:30000],
+                    contents=content_list,
+                    config=image_config,
+                    max_attempts=5,
+                    retry_delay=30,
+                )
+            elif generation_utils.should_use_openai_image_generation(self.model_name):
                 image_config = {
                     "size": "1536x1024",
                     "quality": "high",
@@ -183,7 +196,20 @@ class VanillaAgent(BaseAgent):
         
         output_key = f"vanilla_{cfg['task_name']}_base64_jpg"
         if cfg["use_image_generation"]:
-            data[output_key] = await asyncio.to_thread(image_utils.convert_png_b64_to_jpg_b64, response_list[0])
+            image_response = generation_utils.require_image_response(
+                response_list,
+                model_name=self.model_name,
+                context="VanillaAgent image generation",
+            )
+            converted_jpg = await asyncio.to_thread(
+                image_utils.convert_png_b64_to_jpg_b64, image_response
+            )
+            if not converted_jpg:
+                raise RuntimeError(
+                    f"VanillaAgent failed for image model {self.model_name}: "
+                    "upstream returned non-image data."
+                )
+            data[output_key] = converted_jpg
         else:
             if response_list and response_list[0]:
                 raw_code = response_list[0]

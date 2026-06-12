@@ -69,11 +69,24 @@
   --color-text-primary: #111111;
   --color-text-secondary: #2a2a2a;
   --color-text-tertiary: #555555;
-  --color-text-muted: #777777;
+  --color-text-muted: #555555;
 
   --color-border: rgba(0, 0, 0, 0.10);
   --color-border-hover: rgba(0, 0, 0, 0.16);
   --color-border-focus: rgba(0, 0, 0, 0.35);
+
+  --color-primary: #111111;
+  --color-primary-hover: #000000;
+  --color-primary-active: #000000;
+  --color-primary-light: rgba(0, 0, 0, 0.08);
+
+  --color-secondary: #2a2a2a;
+  --color-secondary-hover: #111111;
+  --color-secondary-active: #000000;
+
+  --color-accent: #555555;
+  --color-accent-hover: #2a2a2a;
+  --color-accent-active: #111111;
 
   --shadow-sm: 0 1px 0 rgba(0,0,0,0.06);
   --shadow-md: 0 10px 22px rgba(0,0,0,0.10);
@@ -160,4 +173,3 @@
     animation: none !important;
   }
 }
-

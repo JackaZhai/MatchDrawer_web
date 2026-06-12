@@ -155,7 +155,20 @@ class VisualizerAgent(BaseAgent):
                 aspect_ratio = data["additional_info"]["rounded_ratio"]
 
             if cfg["use_image_generation"]:
-                if "gpt-image" in self.model_name:
+                if generation_utils.should_use_grsai_image_generation():
+                    image_config = {
+                        "aspect_ratio": aspect_ratio,
+                        "image_size": "1K",
+                    }
+                    response_list = await generation_utils.call_grsai_image_generation_with_retry_async(
+                        model_name=self.model_name,
+                        prompt=prompt_text,
+                        contents=content_list,
+                        config=image_config,
+                        max_attempts=5,
+                        retry_delay=30,
+                    )
+                elif generation_utils.should_use_openai_image_generation(self.model_name):
                     image_config = {
                         "size": "1536x1024",
                         "quality": "high",
@@ -208,20 +221,27 @@ class VisualizerAgent(BaseAgent):
                     retry_delay=30,
                 )
             
-            if not response_list or not response_list[0]:
-                continue
-            
             # Post-process based on task type
             if cfg["use_image_generation"]:
+                image_response = generation_utils.require_image_response(
+                    response_list,
+                    model_name=self.model_name,
+                    context=f"VisualizerAgent producing {desc_key}",
+                )
                 # Convert PNG to JPG
                 converted_jpg = await asyncio.to_thread(
-                    image_utils.convert_png_b64_to_jpg_b64, response_list[0]
+                    image_utils.convert_png_b64_to_jpg_b64, image_response
                 )
                 if converted_jpg:
                     data[f"{desc_key}_base64_jpg"] = converted_jpg
                 else:
-                    print(f"⚠️  Skipping {desc_key}: image conversion failed")
+                    raise RuntimeError(
+                        f"VisualizerAgent failed for image model {self.model_name}: "
+                        f"upstream returned non-image data for {desc_key}."
+                    )
             else:
+                if not response_list or not response_list[0]:
+                    continue
                 # Plot: execute generated code
                 raw_code = response_list[0]
                 

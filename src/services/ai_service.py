@@ -10,7 +10,7 @@ import requests
 
 from ..config import get_config
 from ..models.usage_stats import UsageStats
-from ..utils.errors import ApiError, ValidationError
+from ..utils.errors import ApiError, NotFoundError, ValidationError
 from .api_key_service import get_api_key_service
 from .paper_banana_service import get_paper_banana_service
 from .provider_config_service import get_provider_config_service
@@ -22,6 +22,7 @@ class AIService:
     def __init__(self):
         self.config = get_config()
         self.api_key_service = get_api_key_service()
+        self._grsai_image_results: dict[str, Dict[str, Any]] = {}
 
     @staticmethod
     def _is_text_model_multimodal(provider: str, model: str) -> bool:
@@ -201,19 +202,22 @@ class AIService:
         self, endpoint: str, payload: Dict[str, Any], user_id: Optional[int]
     ) -> Dict[str, Any]:
         """Call upstream API (POST)."""
+        headers = self.api_key_service.build_headers(user_id, provider="grsai")
+        headers["Connection"] = "close"
         try:
             response = requests.post(
                 endpoint,
-                headers=self.api_key_service.build_headers(user_id, provider="grsai"),
+                headers=headers,
                 json=payload,
                 timeout=120,
             )
             response.raise_for_status()
         except requests.HTTPError as exc:
-            text = exc.response.text if exc.response is not None else ""
+            response = exc.response
+            text = response.text if response is not None else ""
             raise ApiError(
                 "API request failed",
-                status_code=exc.response.status_code if exc.response else 502,
+                status_code=response.status_code if response is not None else 502,
                 details=text,
             )
         except requests.RequestException as exc:
@@ -230,18 +234,21 @@ class AIService:
 
     def call_get_api(self, endpoint: str, user_id: Optional[int]) -> Dict[str, Any]:
         """Call upstream API (GET)."""
+        headers = self.api_key_service.build_headers(user_id, provider="grsai")
+        headers["Connection"] = "close"
         try:
             response = requests.get(
                 endpoint,
-                headers=self.api_key_service.build_headers(user_id, provider="grsai"),
+                headers=headers,
                 timeout=120,
             )
             response.raise_for_status()
         except requests.HTTPError as exc:
-            text = exc.response.text if exc.response is not None else ""
+            response = exc.response
+            text = response.text if response is not None else ""
             raise ApiError(
                 "API request failed",
-                status_code=exc.response.status_code if exc.response else 502,
+                status_code=response.status_code if response is not None else 502,
                 details=text,
             )
         except requests.RequestException as exc:
@@ -258,10 +265,12 @@ class AIService:
 
     def call_streaming_api(self, endpoint: str, payload: Dict[str, Any], user_id: Optional[int]):
         """Call upstream streaming API."""
+        headers = self.api_key_service.build_headers(user_id, provider="grsai")
+        headers["Connection"] = "close"
         try:
             response = requests.post(
                 endpoint,
-                headers=self.api_key_service.build_headers(user_id, provider="grsai"),
+                headers=headers,
                 json=payload,
                 timeout=120,
                 stream=True,
@@ -269,10 +278,11 @@ class AIService:
             response.raise_for_status()
             return response
         except requests.HTTPError as exc:
-            text = exc.response.text if exc.response is not None else ""
+            response = exc.response
+            text = response.text if response is not None else ""
             raise ApiError(
                 "API request failed",
-                status_code=exc.response.status_code if exc.response else 502,
+                status_code=response.status_code if response is not None else 502,
                 details=text,
             )
         except requests.RequestException as exc:
@@ -348,8 +358,162 @@ class AIService:
             raise last_error
         raise ApiError("API request failed", status_code=502)
 
+    def _extract_upstream_data(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        data = payload.get("data") if isinstance(payload, dict) else None
+        return data if isinstance(data, dict) else payload
+
+    def _extract_upstream_task_id(self, payload: Dict[str, Any]) -> str:
+        data = self._extract_upstream_data(payload)
+        candidates = [
+            data.get("id"),
+            data.get("taskId"),
+            data.get("task_id"),
+            data.get("drawId"),
+            data.get("draw_id"),
+        ]
+        for value in candidates:
+            if value:
+                return str(value).strip()
+        raise ApiError(
+            "Upstream image API did not return task id",
+            status_code=502,
+            details=json.dumps(payload, ensure_ascii=False),
+        )
+
+    def _normalise_image_result_payload(self, payload: Dict[str, Any], draw_id: str) -> Dict[str, Any]:
+        data = self._extract_upstream_data(payload)
+        if not isinstance(data, dict):
+            return {"id": draw_id, "status": "running", "progress": 10, "raw": payload}
+
+        result = dict(data)
+        result["id"] = str(result.get("id") or draw_id)
+
+        raw_status = str(result.get("status") or result.get("state") or "").strip().lower()
+        if raw_status in {"success", "completed", "complete", "done", "finish", "finished"}:
+            result["status"] = "succeeded"
+        elif raw_status in {"error", "failed", "fail", "failure"}:
+            result["status"] = "failed"
+        elif raw_status:
+            result["status"] = raw_status
+        else:
+            result["status"] = "running"
+
+        if result["status"] == "succeeded":
+            result["progress"] = 100
+        else:
+            progress_raw = str(result.get("progress") or result.get("percent") or "10")
+            progress_digits = "".join(ch for ch in progress_raw if ch.isdigit())
+            result["progress"] = int(progress_digits or "10")
+
+        image_values: list[str] = []
+        for key in ("url", "imageUrl", "image_url", "output", "result"):
+            value = result.get(key)
+            if isinstance(value, str) and value.strip():
+                image_values.append(value.strip())
+        for key in ("urls", "images", "outputs", "results"):
+            value = result.get(key)
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str) and item.strip():
+                        image_values.append(item.strip())
+                    elif isinstance(item, dict):
+                        url = item.get("url") or item.get("imageUrl") or item.get("image_url")
+                        if isinstance(url, str) and url.strip():
+                            image_values.append(url.strip())
+        if image_values:
+            result["results"] = [{"url": url, "content": "GrsAI generated"} for url in image_values]
+
+        return result
+
+    @staticmethod
+    def _can_try_next_grsai_host(error: ApiError) -> bool:
+        if error.status_code >= 500 or error.message.startswith("Network error:"):
+            return True
+        if error.status_code == 400 and error.details:
+            try:
+                payload = json.loads(error.details)
+            except ValueError:
+                return False
+            if not isinstance(payload, dict):
+                return False
+            status = str(payload.get("status") or "").strip().lower()
+            message = str(payload.get("error") or payload.get("message") or "").strip().lower()
+            return status == "failed" and message == "generate failed"
+        return False
+
+    def _call_grsai_image_api(
+        self, user_id: Optional[int], path: str, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        last_error: Optional[ApiError] = None
+        for host in self._candidate_grsai_hosts(user_id):
+            try:
+                return self.call_api(f"{host}{path}", payload, user_id)
+            except ApiError as exc:
+                last_error = exc
+                if not self._can_try_next_grsai_host(exc):
+                    raise
+                continue
+
+        if last_error is not None:
+            raise last_error
+        raise ApiError("API request failed", status_code=502)
+
+    def _generate_grsai_image(self, user_id: Optional[int], data: Dict[str, Any]) -> Dict[str, Any]:
+        from ..utils.validation import get_validation_service
+
+        validation = get_validation_service()
+        prompt = (data.get("prompt") or data.get("caption") or "").strip()
+        validation.validate_prompt(prompt)
+        urls = validation.sanitize_urls(data.get("urls") or [])
+        validation.validate_reference_images(urls)
+
+        model = (
+            data.get("imageModel")
+            or data.get("image_model")
+            or data.get("model")
+            or "nano-banana-pro"
+        )
+        model = str(model).strip() or "nano-banana-pro"
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "aspectRatio": (data.get("aspectRatio") or "auto"),
+            "imageSize": (data.get("imageSize") or "1K"),
+            "urls": urls,
+            "shutProgress": bool(data.get("shutProgress", False)),
+        }
+        webhook = str(data.get("webHook", data.get("webhook", "")) or "").strip()
+        if webhook and webhook != "-1":
+            payload["webHook"] = webhook
+
+        response = self._call_grsai_image_api(user_id, "/v1/api/generate", payload)
+        task_id = self._extract_upstream_task_id(response)
+        result_payload = self._normalise_image_result_payload(response, task_id)
+        if result_payload.get("status") in {"succeeded", "failed"} or result_payload.get("results"):
+            self._grsai_image_results[task_id] = result_payload
+
+        if user_id:
+            UsageStats.record_usage_for_user(user_id)
+
+        return {"code": 0, "data": {"id": task_id}}
+
+    def _get_grsai_image_result(self, user_id: Optional[int], draw_id: str) -> Dict[str, Any]:
+        cached = self._grsai_image_results.get(draw_id)
+        if cached is not None:
+            return {"code": 0, "data": cached}
+
+        response = self._call_grsai_image_api(user_id, "/v1/api/result", {"id": draw_id})
+        payload = self._normalise_image_result_payload(response, draw_id)
+        if payload.get("status") in {"succeeded", "failed"} or payload.get("results"):
+            self._grsai_image_results[draw_id] = payload
+
+        if user_id:
+            UsageStats.record_usage_for_user(user_id)
+
+        return {"code": 0, "data": payload}
+
     def generate_image(self, user_id: Optional[int], data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate image (PaperBanana local)."""
+        """Generate image through GrsAI or the PaperBanana workflow wrapper."""
         from ..utils.validation import get_validation_service
 
         validation = get_validation_service()
@@ -361,6 +525,11 @@ class AIService:
         pipeline_mode = (
             data.get("pipelineMode") or data.get("pipeline_mode") or "full"
         ).strip().lower() or "full"
+        if pipeline_mode == "image_only":
+            return self._generate_grsai_image(user_id, data)
+        if aspect_ratio.lower() == "auto":
+            aspect_ratio = "16:9"
+
         exp_mode = (data.get("expMode") or data.get("exp_mode") or "").strip()
         retrieval_setting = (
             data.get("retrievalSetting") or data.get("retrieval_setting") or ""
@@ -469,14 +638,17 @@ class AIService:
         return {"code": 0, "data": {"id": job_id}}
 
     def get_image_result(self, user_id: Optional[int], draw_id: str) -> Dict[str, Any]:
-        """Get image generation result (PaperBanana local)."""
+        """Get image generation result from local PaperBanana or GrsAI."""
         from ..utils.validation import get_validation_service
 
         validation = get_validation_service()
         validation.validate_draw_id(draw_id)
 
         service = get_paper_banana_service()
-        payload = service.get_result_payload(draw_id)
+        try:
+            payload = service.get_result_payload(draw_id)
+        except NotFoundError:
+            return self._get_grsai_image_result(user_id, draw_id)
 
         if user_id:
             UsageStats.record_usage_for_user(user_id)

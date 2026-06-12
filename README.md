@@ -26,6 +26,19 @@ Override with `AUTH_USERNAME` and `AUTH_PASSWORD` when needed.
 
 ## Deploy On Linux
 
+Docker Compose deployment:
+
+```bash
+git clone <your-repo-url> /opt/matchdrawer/MatchDrawer_web
+cd /opt/matchdrawer/MatchDrawer_web
+cp .env.example .env
+docker compose up -d --build
+```
+
+The Compose stack exposes the app on port `8788` and persists runtime data under `runtime/data`.
+
+Native Python deployment:
+
 ```bash
 git clone <your-repo-url> /opt/matchdrawer/MatchDrawer_web
 cd /opt/matchdrawer/MatchDrawer_web

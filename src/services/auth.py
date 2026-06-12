@@ -6,6 +6,8 @@ import hashlib
 import re
 import secrets
 import time
+
+import requests
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple
 
@@ -36,19 +38,95 @@ class AuthService:
 
     def verify_credentials(self, username: str, password: str) -> Optional[int]:
         """验证用户凭证"""
-        # 确保默认用户存在
+        # 确保默认用户存在，作为 New API 不可用时的本地管理员兜底。
         User.ensure_default_user()
 
+        username = str(username or "").strip()
+        password = str(password or "")
+
+        if self.config.newapi_auth_enabled:
+            newapi_user, upstream_available = self._verify_newapi_credentials(username, password)
+            if newapi_user:
+                synced_user = self._sync_newapi_user(username, newapi_user)
+                if synced_user and synced_user.status == "active":
+                    return synced_user.id
+                return None
+
+            # New API 是主认证源；仅保留本地种子管理员作为故障兜底。
+            if username != self.config.seed_username:
+                return None
+            if upstream_available:
+                return self._verify_local_seed_admin(username, password)
+
+        return self._verify_local_seed_admin(username, password)
+
+    def _verify_local_seed_admin(self, username: str, password: str) -> Optional[int]:
+        """Verify the local seeded admin account used as an emergency fallback."""
         user = User.get_by_username(username)
         if not user:
             return None
         if user.status != "active":
             return None
-
         if not user.verify_password(password):
             return None
-
         return user.id
+
+    def _verify_newapi_credentials(
+        self, username: str, password: str
+    ) -> Tuple[Optional[Dict[str, Any]], bool]:
+        """Validate credentials against New API and return its user payload."""
+        base_url = str(self.config.newapi_base_url or "").rstrip("/")
+        if not base_url:
+            return None, False
+
+        try:
+            response = requests.post(
+                f"{base_url}/api/user/login",
+                json={"username": username, "password": password},
+                timeout=float(self.config.newapi_auth_timeout_seconds),
+            )
+            upstream_available = True
+            if response.status_code >= 500:
+                return None, False
+            payload = response.json()
+        except (requests.RequestException, ValueError):
+            return None, False
+
+        if not payload.get("success"):
+            return None, upstream_available
+
+        data = payload.get("data") or {}
+        if not isinstance(data, dict):
+            return None, upstream_available
+        return data, upstream_available
+
+    def _sync_newapi_user(self, fallback_username: str, newapi_user: Dict[str, Any]) -> Optional[User]:
+        """Create or update a local Matchdrawer user from New API login data."""
+        username = str(newapi_user.get("username") or fallback_username or "").strip()
+        if not username:
+            return None
+
+        try:
+            newapi_role = int(newapi_user.get("role") or 0)
+        except (TypeError, ValueError):
+            newapi_role = 0
+        try:
+            newapi_status = int(newapi_user.get("status") or 0)
+        except (TypeError, ValueError):
+            newapi_status = 0
+
+        role = "admin" if newapi_role >= self.config.newapi_admin_role_threshold else "user"
+        status = "active" if newapi_status == 1 else "disabled"
+
+        user = User.get_by_username(username)
+        if not user:
+            user = User(username=username, role=role, status=status)
+            user.set_password(secrets.token_urlsafe(32))
+        else:
+            user.role = role
+            user.status = status
+        user.save()
+        return user
 
     @classmethod
     def validate_username(cls, username: str) -> str:
