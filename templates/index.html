@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mono.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/happyresearch-theme.css') }}">
     <!-- Favicon -->
     <link rel="icon" href="{{ url_for('static', filename='app-icon.png') }}" type="image/png">
     <link rel="shortcut icon" href="{{ url_for('static', filename='app-icon.png') }}" type="image/png">
@@ -202,13 +203,13 @@
         <!-- 侧边栏 -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <a href="#" class="sidebar-brand">
+                <a href="https://api.happyresearch.xyz" class="sidebar-brand" target="_blank" rel="noreferrer">
                     <div class="brand-logo">
                         <img src="{{ url_for('static', filename='app-icon.png') }}" alt="MatchDrawer Logo" class="brand-logo-image">
                     </div>
                     <div class="brand-text">
                         <div class="brand-title">MatchDrawer</div>
-        
+                        <div class="brand-subtitle">HappyResearch</div>
                     </div>
                 </a>
             </div>
@@ -256,6 +257,7 @@
                 <div class="topbar-left">
                     <div class="page-title">
                         <h1 id="pageTitle">首页</h1>
+                        <p class="page-subtitle">HappyResearch / AI Image Studio</p>
                     </div>
                 </div>
 
