@@ -2,9 +2,9 @@
 
 import json
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
-from flask import Blueprint, jsonify, make_response, render_template, request, url_for
+from flask import Blueprint, jsonify, make_response, redirect, render_template, request, url_for
 
 from ..services.api_key_service import get_api_key_service
 from ..services.auth import REMEMBER_COOKIE_NAME, get_auth_service
@@ -48,6 +48,16 @@ def _resolve_next_url(raw_next: Any) -> str:
     return candidate
 
 
+def _build_external_callback_url(auth_service: Any, next_url: str) -> str:
+    callback_path = url_for("auth.newapi_sso_callback", next=next_url)
+    public_base_url = str(auth_service.config.public_base_url or "").rstrip("/")
+    if public_base_url:
+        return f"{public_base_url}{callback_path}"
+
+    scheme = "https" if request.host.endswith(".happyresearch.xyz") else request.scheme
+    return url_for("auth.newapi_sso_callback", _external=True, _scheme=scheme, next=next_url)
+
+
 def _remember_cookie_kwargs(auth_service: Any) -> dict[str, Any]:
     return {
         "httponly": True,
@@ -80,6 +90,49 @@ def _revoke_current_access_tokens(auth_service: Any) -> None:
         auth_service.revoke_access_tokens(int(user_id))
 
 
+@auth_bp.get("/api/auth/newapi/start")
+def newapi_sso_start() -> Any:
+    """Start New API SSO by redirecting to the central gateway."""
+    auth_service = get_auth_service()
+    next_url = _resolve_next_url(request.args.get("next"))
+    if not auth_service.config.newapi_sso_enabled or not auth_service.config.newapi_sso_authorize_url:
+        return redirect(url_for("auth.login", sso="0", next=next_url))
+
+    callback_url = _build_external_callback_url(auth_service, next_url)
+    separator = "&" if "?" in auth_service.config.newapi_sso_authorize_url else "?"
+    return redirect(
+        f"{auth_service.config.newapi_sso_authorize_url}"
+        f"{separator}{urlencode({'redirect_uri': callback_url})}"
+    )
+
+
+@auth_bp.get("/api/auth/newapi/callback")
+def newapi_sso_callback() -> Any:
+    """Exchange a New API SSO token for a MatchDrawer access token."""
+    auth_service = get_auth_service()
+    next_url = _resolve_next_url(request.args.get("next"))
+    token = request.args.get("token") or ""
+    try:
+        user = auth_service.verify_newapi_sso_token(token)
+    except AuthenticationError:
+        return redirect(url_for("auth.login", sso="0", next=next_url))
+
+    user_id = int(user.id or 0)
+    if not user_id:
+        return redirect(url_for("auth.login", sso="0", next=next_url))
+
+    auth_timestamp = auth_service._utcnow()
+    auth_service.login_user(user_id, user.username, issued_at=auth_timestamp)
+
+    api_key_service = get_api_key_service()
+    api_key_service.bootstrap_api_keys(user_id)
+
+    return _build_login_success_response(
+        auth_service.issue_token(user_id, user.username, issued_at=auth_timestamp),
+        next_url,
+    )
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login() -> Any:
     """登录页面"""
@@ -87,6 +140,10 @@ def login() -> Any:
     error: str = ""
 
     if request.method == "POST":
+        if auth_service.config.newapi_sso_enabled and request.args.get("sso") != "0":
+            error = "请通过 New API 统一登录入口访问"
+            return render_template("login.html", error=error, next_url=request.args.get("next") or "")
+
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
 
@@ -114,6 +171,10 @@ def login() -> Any:
         else:
             # 登录失败
             error = auth_service.record_failed_attempt(username)
+    elif auth_service.config.newapi_sso_enabled and request.args.get("sso") != "0":
+        next_url = _resolve_next_url(request.args.get("next"))
+        return redirect(url_for("auth.newapi_sso_start", next=next_url))
+
 
     return render_template("login.html", error=error, next_url=request.args.get("next") or "")
 

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import re
+import base64
+import hmac
+import json
 import secrets
 import time
 
@@ -126,6 +129,92 @@ class AuthService:
             user.role = role
             user.status = status
         user.save()
+        return user
+
+    @staticmethod
+    def _base64url_decode(raw_value: str) -> bytes:
+        value = str(raw_value or "").strip()
+        padding = "=" * (-len(value) % 4)
+        return base64.urlsafe_b64decode((value + padding).encode("ascii"))
+
+    def _decode_newapi_sso_token(self, token: str) -> Dict[str, Any]:
+        raw_token = str(token or "").strip()
+        parts = raw_token.split(".")
+        if len(parts) != 3:
+            raise AuthenticationError("统一登录令牌格式无效")
+
+        signing_input = f"{parts[0]}.{parts[1]}".encode("ascii")
+        try:
+            signature = self._base64url_decode(parts[2])
+            header = json.loads(self._base64url_decode(parts[0]).decode("utf-8"))
+            payload = json.loads(self._base64url_decode(parts[1]).decode("utf-8"))
+        except Exception as exc:
+            raise AuthenticationError("统一登录令牌格式无效") from exc
+
+        if header.get("alg") != "HS256":
+            raise AuthenticationError("统一登录令牌算法无效")
+
+        expected_signature = hmac.new(
+            self.config.newapi_sso_secret.encode("utf-8"),
+            signing_input,
+            hashlib.sha256,
+        ).digest()
+        if not hmac.compare_digest(signature, expected_signature):
+            raise AuthenticationError("统一登录令牌签名无效")
+
+        return payload
+
+    def verify_newapi_sso_token(self, token: str) -> User:
+        """Verify a New API-issued SSO token and sync the local user."""
+        if not self.config.newapi_sso_enabled:
+            raise AuthenticationError("统一登录未启用")
+
+        payload = self._decode_newapi_sso_token(token)
+        now = int(time.time())
+        skew = int(self.config.newapi_sso_clock_skew_seconds)
+
+        try:
+            expires_at = int(payload.get("exp") or 0)
+            issued_at = int(payload.get("iat") or 0)
+        except (TypeError, ValueError) as exc:
+            raise AuthenticationError("统一登录令牌时间无效") from exc
+
+        if expires_at <= 0 or expires_at + skew < now:
+            raise AuthenticationError("统一登录令牌已过期")
+        if issued_at <= 0 or issued_at - skew > now:
+            raise AuthenticationError("统一登录令牌尚未生效")
+        if payload.get("iss") != self.config.newapi_sso_issuer:
+            raise AuthenticationError("统一登录签发方无效")
+        if payload.get("aud") != self.config.newapi_sso_audience:
+            raise AuthenticationError("统一登录受众无效")
+
+        username = str(payload.get("username") or "").strip()
+        if not username:
+            raise AuthenticationError("统一登录用户信息无效")
+
+        try:
+            newapi_id = int(payload.get("id") or 0)
+            newapi_role = int(payload.get("role") or 0)
+            newapi_status = int(payload.get("status") or 0)
+        except (TypeError, ValueError) as exc:
+            raise AuthenticationError("统一登录用户状态无效") from exc
+
+        if newapi_id <= 0:
+            raise AuthenticationError("统一登录用户信息无效")
+        if newapi_status != 1:
+            raise AuthenticationError("统一登录用户不可用")
+
+        user = self._sync_newapi_user(
+            username,
+            {
+                "id": newapi_id,
+                "username": username,
+                "role": newapi_role,
+                "status": newapi_status,
+            },
+        )
+        if not user or user.status != "active":
+            raise AuthenticationError("统一登录用户不可用")
         return user
 
     @classmethod

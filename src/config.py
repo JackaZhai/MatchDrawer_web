@@ -42,8 +42,17 @@ class Config:
         self.cookie_secure = self._get_bool_env("COOKIE_SECURE", default=False)
         self.newapi_auth_enabled = self._get_bool_env("NEWAPI_AUTH_ENABLED", default=False)
         self.newapi_base_url = os.getenv("NEWAPI_BASE_URL", "").rstrip("/")
+        self.newapi_sso_enabled = self._get_bool_env("NEWAPI_SSO_ENABLED", default=False)
+        self.newapi_sso_authorize_url = os.getenv("NEWAPI_SSO_AUTHORIZE_URL", "").rstrip("?")
+        self.newapi_sso_secret = os.getenv(
+            "HAPPYRESEARCH_SSO_SECRET", os.getenv("NEWAPI_SSO_SECRET", self.app_secret_key)
+        )
+        self.newapi_sso_issuer = os.getenv("HAPPYRESEARCH_SSO_ISSUER", "happyresearch-newapi")
+        self.newapi_sso_audience = os.getenv("HAPPYRESEARCH_SSO_AUDIENCE", "happyresearch-apps")
+        self.newapi_sso_clock_skew_seconds = int(os.getenv("NEWAPI_SSO_CLOCK_SKEW_SECONDS", "30"))
         self.newapi_auth_timeout_seconds = float(os.getenv("NEWAPI_AUTH_TIMEOUT_SECONDS", "8"))
         self.newapi_admin_role_threshold = int(os.getenv("NEWAPI_ADMIN_ROLE_THRESHOLD", "100"))
+        self.public_base_url = os.getenv("APP_PUBLIC_BASE_URL", os.getenv("PUBLIC_BASE_URL", "")).rstrip("/")
         self.max_reference_images = int(os.getenv("MAX_REFERENCE_IMAGES", "3"))
         self.max_reference_image_bytes = int(
             os.getenv("MAX_REFERENCE_IMAGE_BYTES", str(5 * 1024 * 1024))
@@ -96,6 +105,10 @@ class Config:
             "cookie_secure": self.cookie_secure,
             "newapi_auth_enabled": self.newapi_auth_enabled,
             "newapi_base_url": self.newapi_base_url,
+            "newapi_sso_enabled": self.newapi_sso_enabled,
+            "newapi_sso_authorize_url": self.newapi_sso_authorize_url,
+            "newapi_sso_issuer": self.newapi_sso_issuer,
+            "public_base_url": self.public_base_url,
             "max_reference_images": self.max_reference_images,
             "max_reference_image_bytes": self.max_reference_image_bytes,
         }
