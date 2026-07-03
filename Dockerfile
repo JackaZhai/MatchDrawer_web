@@ -31,6 +31,6 @@ USER matchdrawer
 EXPOSE 8788
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import os, urllib.request; port=os.getenv('PORT','8788'); urllib.request.urlopen(f'http://127.0.0.1:{port}/login', timeout=3)"
+    CMD python -c "import os, urllib.request; port=os.getenv('PORT','8788'); urllib.request.urlopen(f'http://127.0.0.1:{port}/login?sso=0', timeout=3)"
 
 CMD ["sh", "-c", "gunicorn -c gunicorn.conf.py --bind 0.0.0.0:${PORT:-8788} app:app"]
