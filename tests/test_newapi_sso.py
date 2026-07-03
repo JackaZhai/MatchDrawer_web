@@ -111,6 +111,15 @@ class NewApiSsoTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("matchdrawer_auth_token_v1", body)
 
+    def test_public_sso_disabled_query_still_uses_newapi_sso(self):
+        response = self.client.get(
+            "/login?sso=0",
+            headers={"Host": "drawer.happyresearch.xyz"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].startswith("/api/auth/newapi/start?"))
+
     def test_newapi_sso_callback_issues_matchdrawer_token_and_syncs_user(self):
         token = build_valid_token()
 

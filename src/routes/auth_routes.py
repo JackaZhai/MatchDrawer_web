@@ -1,5 +1,6 @@
 """Authentication routes."""
 
+import ipaddress
 import json
 from typing import Any
 from urllib.parse import urlencode, urlsplit
@@ -46,6 +47,16 @@ def _resolve_next_url(raw_next: Any) -> str:
     if parts.scheme or parts.netloc or not candidate.startswith("/") or candidate.startswith("//"):
         return url_for("main.index")
     return candidate
+
+
+def _is_local_fallback_request() -> bool:
+    hostname = (urlsplit(f"//{request.host}").hostname or "").strip().lower()
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def _build_external_callback_url(auth_service: Any, next_url: str) -> str:
@@ -138,6 +149,15 @@ def login() -> Any:
     """登录页面"""
     auth_service = get_auth_service()
     error: str = ""
+    next_url = _resolve_next_url(request.args.get("next"))
+    local_fallback_requested = request.args.get("sso") == "0"
+
+    if (
+        auth_service.config.newapi_sso_enabled
+        and local_fallback_requested
+        and not _is_local_fallback_request()
+    ):
+        return redirect(url_for("auth.newapi_sso_start", next=next_url))
 
     if request.method == "POST":
         if auth_service.config.newapi_sso_enabled and request.args.get("sso") != "0":
@@ -163,7 +183,6 @@ def login() -> Any:
             api_key_service = get_api_key_service()
             api_key_service.bootstrap_api_keys(user_id)
 
-            next_url = _resolve_next_url(request.args.get("next"))
             return _build_login_success_response(
                 auth_service.issue_token(user_id, username, issued_at=auth_timestamp),
                 next_url,
@@ -172,7 +191,6 @@ def login() -> Any:
             # 登录失败
             error = auth_service.record_failed_attempt(username)
     elif auth_service.config.newapi_sso_enabled and request.args.get("sso") != "0":
-        next_url = _resolve_next_url(request.args.get("next"))
         return redirect(url_for("auth.newapi_sso_start", next=next_url))
 
 
